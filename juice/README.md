@@ -11,61 +11,61 @@ Here's an example of the language:
 
 ```
 object RenderContext {
-	init() {
-		// Initialzie the context object ...
-	}
+  init() {
+    // Initialzie the context object ...
+  }
 
-	deinit() {
-		// Release the resources ...
-	}
+  deinit() {
+    // Release the resources ...
+  }
 }
 
 trait Renderable {
-	render(context: RenderContext): void;
+  render(context: RenderContext): void;
 }
 
 trait Updatable {
-	update(dt: number);
+  update(dt: number);
 }
 
 object Text : Renderable + Updatable {
-	init(text) {
-		this.text = text;
-	}
+  init(text) {
+    this.text = text;
+  }
 
-	render(context) {
-		// Rendering code ...
-	}
+  render(context) {
+    // Rendering code ...
+  }
 }
 
 object Circle : Renderable {
-	init(position, radius) {
-		this.position = position;
-		this.text = text;
-	}
+  init(position, radius) {
+    this.position = position;
+    this.text = text;
+  }
 
-	render(context) {
-		// Rendering code ...
-	}
+  render(context) {
+    // Rendering code ...
+  }
 }
 
 var context = RenderContext {};
 var renderables: Renderable = [
-	Text {
-		text = "Hello",
-	},
-	Circle {
-		position = {
-			x = 0,
-			y = 0,
-		},
-		radius = 5,
-	}
+  Text {
+    text = "Hello",
+  },
+  Circle {
+    position = {
+      x = 0,
+      y = 0,
+    },
+    radius = 5,
+  }
 ];
 
 while true {
-	for renderable in renderables {
-		renderable.render(context);
-	}
+  for renderable in renderables {
+    renderable.render(context);
+  }
 }
 ```
