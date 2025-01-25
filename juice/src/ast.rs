@@ -54,6 +54,10 @@ pub struct Parameter {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
+    Call {
+        callee: Box<Expression>,
+        arguments: Vec<Expression>,
+    },
     Binary {
         left: Box<Expression>,
         operator: BinaryOp,

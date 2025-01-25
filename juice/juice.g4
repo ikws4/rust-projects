@@ -52,15 +52,15 @@ type
     ;
 
 whileStatement
-    : WHILE '(' expression block
+    : WHILE '(' expression ')' block
     ;
 
 forStatement
-    : FOR identifier IN expression block
+    : FOR '(' 'var' identifier IN expression ')' block
     ;
 
 ifStatement
-    : IF expression block (ELSE block)?
+    : IF '(' expression ')' block (ELSE block)?
     ;
 
 returnStatement
@@ -108,15 +108,17 @@ multiplicativeExpression
     ;
 
 unaryExpression
-    : ('!' | '-')* memberExpr
+    : ('!' | '-')* postfixExpression
     ;
 
-memberExpr
-    : primary (('.' identifier ('(' argumentList? ')')?) | arrayIndexExpr)*
+postfixExpression
+    : primary postfixOp*
     ;
 
-arrayIndexExpr
-    : '[' expression ']'
+postfixOp
+    : '.' identifier
+    | '(' argumentList? ')'
+    | '[' expression ']'
     ;
 
 argumentList
@@ -144,7 +146,7 @@ fieldAssignment
     ;
 
 arrayConstruction
-    : '[' (objectConstruction (',' objectConstruction)* ','?)? ']'
+    : '[' (expression (',' expression)* ','?)? ']'
     ;
 
 identifier : IDENTIFIER ;

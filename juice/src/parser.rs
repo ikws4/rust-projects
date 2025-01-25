@@ -204,7 +204,9 @@ impl Parser {
 
     fn if_statement(&mut self) -> Statement {
         self.consume(TokenType::If, "Expected 'if' keyword");
+        self.consume(TokenType::LeftParen, "Expected '(' after 'if'");
         let condition = Box::new(self.expression());
+        self.consume(TokenType::RightParen, "Expected ')' after condition");
         let then_branch = self.block();
 
         let else_branch = if self.match_token(TokenType::Else) {
@@ -399,61 +401,73 @@ impl Parser {
     }
 
     fn unary(&mut self) -> Expression {
-        if self.match_token(TokenType::Bang) {
-            let expr = self.unary();
-            Expression::Unary {
-                operator: UnaryOp::Not,
-                operand: Box::new(expr),
-            }
-        } else if self.match_token(TokenType::Minus) {
-            let expr = self.unary();
-            Expression::Unary {
-                operator: UnaryOp::Negate,
-                operand: Box::new(expr),
-            }
-        } else {
-            self.member_expr()
+        let mut operators = Vec::new();
+        while self.match_token(TokenType::Bang) || self.match_token(TokenType::Minus) {
+            operators.push(if self.previous().token_type == TokenType::Bang {
+                UnaryOp::Not
+            } else {
+                UnaryOp::Negate
+            });
         }
+
+        let mut expr = self.postfix_expression();
+
+        // Apply unary operators in reverse order
+        for op in operators.into_iter().rev() {
+            expr = Expression::Unary {
+                operator: op,
+                operand: Box::new(expr),
+            };
+        }
+
+        expr
     }
 
-    fn member_expr(&mut self) -> Expression {
+    fn postfix_expression(&mut self) -> Expression {
         let mut expr = self.primary();
 
-        loop {
-            if self.match_token(TokenType::Dot) {
-                let member = self.consume_identifier("Expected property name after '.'");
-
-                if self.match_token(TokenType::LeftParen) {
-                    let arguments = if !self.check(TokenType::RightParen) {
-                        Some(self.argument_list())
-                    } else {
-                        None
-                    };
-                    self.consume(TokenType::RightParen, "Expected ')' after arguments");
-
-                    expr = Expression::Member {
-                        object: Box::new(expr),
-                        member,
-                        arguments,
-                    };
+        if self.match_token(TokenType::LeftParen) {
+            let arguments = if !self.check(TokenType::RightParen) {
+                self.argument_list()
+            } else {
+                Vec::new()
+            };
+            self.consume(TokenType::RightParen, "Expected ')' after arguments");
+            expr = Expression::Call {
+                callee: Box::new(expr),
+                arguments,
+            };
+        } else if self.match_token(TokenType::Dot) {
+            let member = self.consume_identifier("Expected property name after '.'");
+            if self.check(TokenType::LeftParen) {
+                // Method call
+                self.advance();
+                let arguments = if !self.check(TokenType::RightParen) {
+                    Some(self.argument_list())
                 } else {
-                    expr = Expression::Member {
-                        object: Box::new(expr),
-                        member,
-                        arguments: None,
-                    };
-                }
-            } else if self.match_token(TokenType::LeftBracket) {
-                let index = Box::new(self.expression());
-                self.consume(TokenType::RightBracket, "Expected ']' after array index");
-
-                expr = Expression::ArrayIndex {
-                    array: Box::new(expr),
-                    index,
+                    None
+                };
+                self.consume(TokenType::RightParen, "Expected ')' after method arguments");
+                expr = Expression::Member {
+                    object: Box::new(expr),
+                    member,
+                    arguments,
                 };
             } else {
-                break;
+                // Property access
+                expr = Expression::Member {
+                    object: Box::new(expr),
+                    member,
+                    arguments: None,
+                };
             }
+        } else if self.match_token(TokenType::LeftBracket) {
+            let index = Box::new(self.expression());
+            self.consume(TokenType::RightBracket, "Expected ']' after array index");
+            expr = Expression::ArrayIndex {
+                array: Box::new(expr),
+                index,
+            };
         }
 
         expr
@@ -556,7 +570,7 @@ impl Parser {
 
         if !self.check(TokenType::RightBracket) {
             loop {
-                elements.push(self.object_construction());
+                elements.push(self.expression());
 
                 // Allow optional comma, including trailing comma
                 if !self.match_token(TokenType::Comma) {
@@ -740,7 +754,7 @@ mod tests {
 
     #[test]
     fn test_if_statement() {
-        let input = "if x == 1 { var y = 2; }";
+        let input = "if (x == 1) { var y = 2; }";
         let statements = parse(input);
 
         let expected = vec![Statement::If {
