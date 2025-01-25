@@ -52,11 +52,11 @@ type
     ;
 
 whileStatement
-    : WHILE expression block
+    : WHILE '(' expression ')' block
     ;
 
 forStatement
-    : FOR identifier IN expression block
+    : FOR '(' 'var' identifier IN expression ')' block
     ;
 
 ifStatement
@@ -132,11 +132,14 @@ primary
     ;
 
 objectCreation
-    : type? '{' (identifier '=' expression ',')* '}'
+    : type? '{' (fieldAssignment (',' fieldAssignment)* ','?)? '}'
     ;
 
+fieldAssignment
+    : identifier '=' expression
+
 arrayCreation
-    : '[' (objectCreation (',' objectCreation)*)? ']'
+    : '[' (objectCreation (',' objectCreation)* ','?)? ']'
     ;
 
 identifier : IDENTIFIER ;

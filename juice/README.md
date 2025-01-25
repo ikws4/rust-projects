@@ -63,8 +63,8 @@ var renderables: Renderable = [
   }
 ];
 
-while true {
-  for renderable in renderables {
+while (true) {
+  for (var renderable in renderables) {
     renderable.render(context);
   }
 }

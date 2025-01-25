@@ -172,7 +172,9 @@ impl Parser {
 
     fn while_statement(&mut self) -> Statement {
         self.consume(TokenType::While, "Expected 'while' keyword");
+        self.consume(TokenType::LeftParen, "Expected '(' after 'while'");
         let condition = Box::new(self.expression());
+        self.consume(TokenType::RightParen, "Expected ')' after condition");
         let body = self.block();
 
         Statement::While { condition, body }
@@ -180,9 +182,12 @@ impl Parser {
 
     fn for_statement(&mut self) -> Statement {
         self.consume(TokenType::For, "Expected 'for' keyword");
+        self.consume(TokenType::LeftParen, "Expected '(' after 'for'");
+        self.consume(TokenType::Var, "Expected 'var' keyword in for loop");
         let variable = self.consume_identifier("Expected iteration variable name");
         self.consume(TokenType::In, "Expected 'in' keyword");
         let iterator = Box::new(self.expression());
+        self.consume(TokenType::RightParen, "Expected ')' after iteration variable");
         let body = self.block();
 
         Statement::For {
@@ -474,28 +479,6 @@ impl Parser {
         }
     }
 
-    fn anonymous_object_creation(&mut self) -> Expression {
-        let mut fields = Vec::new();
-        while !self.check(TokenType::RightBrace) {
-            let name = self.consume_identifier("Expected field name");
-
-            self.consume(TokenType::Equal, "Expected '=' after field name");
-            let value = self.expression();
-            fields.push((name, value));
-
-            if !self.match_token(TokenType::Comma) {
-                break;
-            }
-        }
-
-        self.consume(TokenType::RightBrace, "Expected '}' after object fields");
-
-        Expression::ObjectCreation {
-            type_name: None,
-            fields,
-        }
-    }
-
     fn object_creation(&mut self) -> Expression {
         let type_name = Some(
             self.type_identifier()
@@ -514,7 +497,14 @@ impl Parser {
             let value = self.expression();
             fields.push((name, value));
 
+            // Allow optional comma, including trailing comma
             if !self.match_token(TokenType::Comma) {
+                // If no comma, must be end of fields
+                break;
+            }
+
+            // After comma, check if we've reached the end (handles trailing comma)
+            if self.check(TokenType::RightBrace) {
                 break;
             }
         }
@@ -524,13 +514,48 @@ impl Parser {
         Expression::ObjectCreation { type_name, fields }
     }
 
+    fn anonymous_object_creation(&mut self) -> Expression {
+        let mut fields = Vec::new();
+        while !self.check(TokenType::RightBrace) {
+            let name = self.consume_identifier("Expected field name");
+
+            self.consume(TokenType::Equal, "Expected '=' after field name");
+            let value = self.expression();
+            fields.push((name, value));
+
+            // Allow optional comma, including trailing comma
+            if !self.match_token(TokenType::Comma) {
+                break;
+            }
+
+            // After comma, check if we've reached the end (handles trailing comma)
+            if self.check(TokenType::RightBrace) {
+                break;
+            }
+        }
+
+        self.consume(TokenType::RightBrace, "Expected '}' after object fields");
+
+        Expression::ObjectCreation {
+            type_name: None,
+            fields,
+        }
+    }
+
     fn array_creation(&mut self) -> Expression {
         let mut elements = Vec::new();
 
         if !self.check(TokenType::RightBracket) {
             loop {
                 elements.push(self.object_creation());
+
+                // Allow optional comma, including trailing comma
                 if !self.match_token(TokenType::Comma) {
+                    break;
+                }
+
+                // After comma, check if we've reached the end (handles trailing comma)
+                if self.check(TokenType::RightBracket) {
                     break;
                 }
             }
@@ -804,8 +829,8 @@ mod tests {
                 }
             ];
 
-            while true {
-                for renderable in renderables {
+            while (true) {
+                for (var renderable in renderables) {
                     renderable.render(context);
                 }
             }
@@ -813,15 +838,11 @@ mod tests {
 
         let statements = parse(input);
 
-        assert_eq!(statements.len(), 5); // RenderContext, 2 traits, 2 objects, var declarations and loop
+        assert_eq!(statements.len(), 8); // RenderContext, 2 traits, 2 objects, 2 variable declarations, 1 while loop
 
         // Verify RenderContext object
         match &statements[0] {
-            Statement::Object {
-                name,
-                type_annotation,
-                methods,
-            } => {
+            Statement::Object { name, methods, .. } => {
                 assert_eq!(name, "RenderContext");
                 assert_eq!(methods.len(), 2); // init and deinit methods
             }
@@ -830,10 +851,7 @@ mod tests {
 
         // Verify Renderable trait
         match &statements[1] {
-            Statement::Trait {
-                name,
-                method_signatures,
-            } => {
+            Statement::Trait { name, method_signatures } => {
                 assert_eq!(name, "Renderable");
                 assert_eq!(method_signatures.len(), 1); // render method
             }
@@ -842,10 +860,7 @@ mod tests {
 
         // Verify Updatable trait
         match &statements[2] {
-            Statement::Trait {
-                name,
-                method_signatures,
-            } => {
+            Statement::Trait { name, method_signatures } => {
                 assert_eq!(name, "Updatable");
                 assert_eq!(method_signatures.len(), 1); // update method
             }
@@ -854,13 +869,8 @@ mod tests {
 
         // Verify Text object inherits both traits
         match &statements[3] {
-            Statement::Object {
-                name,
-                type_annotation,
-                methods,
-            } => {
+            Statement::Object { name, type_annotation, methods } => {
                 assert_eq!(name, "Text");
-                assert!(type_annotation.is_some());
                 let traits = type_annotation.as_ref().unwrap();
                 assert_eq!(traits.len(), 2);
                 assert_eq!(traits[0], "Renderable");
