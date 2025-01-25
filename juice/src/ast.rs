@@ -7,6 +7,7 @@ pub enum Statement {
     },
     Trait {
         name: String,
+        type_annotation: Option<Vec<String>>,
         method_signatures: Vec<MethodSignature>,
     },
     Var {
@@ -75,11 +76,11 @@ pub enum Expression {
         target: Box<Expression>,
         value: Box<Expression>,
     },
-    ObjectCreation {
+    ObjectConstruction {
         type_name: Option<Vec<String>>,
         fields: Vec<(String, Expression)>,
     },
-    ArrayCreation {
+    ArrayConstruction {
         elements: Vec<Expression>,
     },
     Identifier(String),

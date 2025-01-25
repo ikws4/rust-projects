@@ -60,6 +60,7 @@ impl Parser {
     fn trait_declaration(&mut self) -> Statement {
         self.consume(TokenType::Trait, "Expected 'trait' keyword");
         let name = self.consume_identifier("Expected trait name");
+        let type_annotation = self.type_annotation();
 
         self.consume(TokenType::LeftBrace, "Expected '{' after trait name");
 
@@ -73,6 +74,7 @@ impl Parser {
 
         Statement::Trait {
             name,
+            type_annotation,
             method_signatures,
         }
     }
@@ -187,7 +189,10 @@ impl Parser {
         let variable = self.consume_identifier("Expected iteration variable name");
         self.consume(TokenType::In, "Expected 'in' keyword");
         let iterator = Box::new(self.expression());
-        self.consume(TokenType::RightParen, "Expected ')' after iteration variable");
+        self.consume(
+            TokenType::RightParen,
+            "Expected ')' after iteration variable",
+        );
         let body = self.block();
 
         Statement::For {
@@ -456,15 +461,13 @@ impl Parser {
 
     fn primary(&mut self) -> Expression {
         if self.match_token_sequence_no_advance(&[TokenType::Identifier, TokenType::LeftBrace]) {
-            return self.object_creation();
+            return self.object_construction();
         } else if self.match_token(TokenType::LeftBrace) {
-            return self.anonymous_object_creation();
+            return self.anonymous_object_construction();
         } else if self.match_token(TokenType::LeftBracket) {
-            return self.array_creation();
+            return self.array_construction();
         } else if self.match_token(TokenType::LeftParen) {
-            let expr = self.expression();
-            self.consume(TokenType::RightParen, "Expected ')' after expression");
-            return expr;
+            return self.grouped_expression();
         }
 
         let token = self.advance();
@@ -479,7 +482,13 @@ impl Parser {
         }
     }
 
-    fn object_creation(&mut self) -> Expression {
+    fn grouped_expression(&mut self) -> Expression {
+        let expr = self.expression();
+        self.consume(TokenType::RightParen, "Expected ')' after expression");
+        expr
+    }
+
+    fn object_construction(&mut self) -> Expression {
         let type_name = Some(
             self.type_identifier()
                 .split('.')
@@ -511,10 +520,10 @@ impl Parser {
 
         self.consume(TokenType::RightBrace, "Expected '}' after object fields");
 
-        Expression::ObjectCreation { type_name, fields }
+        Expression::ObjectConstruction { type_name, fields }
     }
 
-    fn anonymous_object_creation(&mut self) -> Expression {
+    fn anonymous_object_construction(&mut self) -> Expression {
         let mut fields = Vec::new();
         while !self.check(TokenType::RightBrace) {
             let name = self.consume_identifier("Expected field name");
@@ -536,18 +545,18 @@ impl Parser {
 
         self.consume(TokenType::RightBrace, "Expected '}' after object fields");
 
-        Expression::ObjectCreation {
+        Expression::ObjectConstruction {
             type_name: None,
             fields,
         }
     }
 
-    fn array_creation(&mut self) -> Expression {
+    fn array_construction(&mut self) -> Expression {
         let mut elements = Vec::new();
 
         if !self.check(TokenType::RightBracket) {
             loop {
-                elements.push(self.object_creation());
+                elements.push(self.object_construction());
 
                 // Allow optional comma, including trailing comma
                 if !self.match_token(TokenType::Comma) {
@@ -563,7 +572,7 @@ impl Parser {
 
         self.consume(TokenType::RightBracket, "Expected ']' after array elements");
 
-        Expression::ArrayCreation { elements }
+        Expression::ArrayConstruction { elements }
     }
 
     fn argument_list(&mut self) -> Vec<Expression> {
@@ -694,7 +703,7 @@ mod tests {
         let expected = vec![Statement::Var {
             name: "point".to_string(),
             type_annotation: None,
-            initializer: Box::new(Expression::ObjectCreation {
+            initializer: Box::new(Expression::ObjectConstruction {
                 type_name: Some(vec!["Point".to_string()]),
                 fields: vec![
                     ("x".to_string(), Expression::NumberLiteral("1".to_string())),
@@ -851,7 +860,11 @@ mod tests {
 
         // Verify Renderable trait
         match &statements[1] {
-            Statement::Trait { name, method_signatures } => {
+            Statement::Trait {
+                name,
+                method_signatures,
+                ..
+            } => {
                 assert_eq!(name, "Renderable");
                 assert_eq!(method_signatures.len(), 1); // render method
             }
@@ -860,7 +873,11 @@ mod tests {
 
         // Verify Updatable trait
         match &statements[2] {
-            Statement::Trait { name, method_signatures } => {
+            Statement::Trait {
+                name,
+                method_signatures,
+                ..
+            } => {
                 assert_eq!(name, "Updatable");
                 assert_eq!(method_signatures.len(), 1); // update method
             }
@@ -869,7 +886,11 @@ mod tests {
 
         // Verify Text object inherits both traits
         match &statements[3] {
-            Statement::Object { name, type_annotation, methods } => {
+            Statement::Object {
+                name,
+                type_annotation,
+                methods,
+            } => {
                 assert_eq!(name, "Text");
                 let traits = type_annotation.as_ref().unwrap();
                 assert_eq!(traits.len(), 2);

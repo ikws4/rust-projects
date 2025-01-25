@@ -124,11 +124,15 @@ argumentList
     ;
 
 primary
-    : objectCreation
-    | arrayCreation
-    | '(' expression ')'
+    : objectConstruction
+    | arrayConstruction
+    | groupedExpression
     | identifier
     | literal
+    ;
+
+groupedExpression
+    : '(' expression ')'
     ;
 
 objectCreation
@@ -138,8 +142,8 @@ objectCreation
 fieldAssignment
     : identifier '=' expression
 
-arrayCreation
-    : '[' (objectCreation (',' objectCreation)* ','?)? ']'
+arrayConstruction
+    : '[' (objectConstruction (',' objectConstruction)* ','?)? ']'
     ;
 
 identifier : IDENTIFIER ;
