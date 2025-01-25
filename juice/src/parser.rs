@@ -467,7 +467,7 @@ impl Parser {
         } else if self.match_token(TokenType::LeftBracket) {
             return self.array_construction();
         } else if self.match_token(TokenType::LeftParen) {
-            return self.grouped_expression();
+            return self.group();
         }
 
         let token = self.advance();
@@ -482,7 +482,7 @@ impl Parser {
         }
     }
 
-    fn grouped_expression(&mut self) -> Expression {
+    fn group(&mut self) -> Expression {
         let expr = self.expression();
         self.consume(TokenType::RightParen, "Expected ')' after expression");
         expr

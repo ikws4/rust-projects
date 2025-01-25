@@ -52,11 +52,11 @@ type
     ;
 
 whileStatement
-    : WHILE '(' expression ')' block
+    : WHILE '(' expression block
     ;
 
 forStatement
-    : FOR '(' 'var' identifier IN expression ')' block
+    : FOR identifier IN expression block
     ;
 
 ifStatement
@@ -126,21 +126,22 @@ argumentList
 primary
     : objectConstruction
     | arrayConstruction
-    | groupedExpression
+    | group
     | identifier
     | literal
     ;
 
-groupedExpression
+group
     : '(' expression ')'
     ;
 
-objectCreation
+objectConstruction
     : type? '{' (fieldAssignment (',' fieldAssignment)* ','?)? '}'
     ;
 
 fieldAssignment
     : identifier '=' expression
+    ;
 
 arrayConstruction
     : '[' (objectConstruction (',' objectConstruction)* ','?)? ']'
