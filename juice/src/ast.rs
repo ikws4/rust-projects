@@ -67,12 +67,12 @@ pub enum Expression {
         operator: UnaryOp,
         operand: Box<Expression>,
     },
-    Member {
+    MemberAccess {
         object: Box<Expression>,
         member: String,
         arguments: Option<Vec<Expression>>,
     },
-    ArrayIndex {
+    ArrayAccess {
         array: Box<Expression>,
         index: Box<Expression>,
     },

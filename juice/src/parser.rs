@@ -448,14 +448,14 @@ impl Parser {
                     None
                 };
                 self.consume(TokenType::RightParen, "Expected ')' after method arguments");
-                expr = Expression::Member {
+                expr = Expression::MemberAccess {
                     object: Box::new(expr),
                     member,
                     arguments,
                 };
             } else {
                 // Property access
-                expr = Expression::Member {
+                expr = Expression::MemberAccess {
                     object: Box::new(expr),
                     member,
                     arguments: None,
@@ -464,7 +464,7 @@ impl Parser {
         } else if self.match_token(TokenType::LeftBracket) {
             let index = Box::new(self.expression());
             self.consume(TokenType::RightBracket, "Expected ']' after array index");
-            expr = Expression::ArrayIndex {
+            expr = Expression::ArrayAccess {
                 array: Box::new(expr),
                 index,
             };
