@@ -12,6 +12,8 @@ pub enum TokenType {
     Null,
     If,
     Else,
+    Break,
+    Continue,
     Return,
 
     // Identifiers and literals

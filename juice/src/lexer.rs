@@ -68,6 +68,8 @@ impl<'a> Lexer<'a> {
             "null" => TokenType::Null,
             "if" => TokenType::If,
             "else" => TokenType::Else,
+            "break" => TokenType::Break,
+            "continue" => TokenType::Continue,
             "return" => TokenType::Return,
             _ => TokenType::Identifier,
         };

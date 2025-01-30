@@ -12,6 +12,8 @@ statement
     | forStatement
     | ifStatement
     | returnStatement
+    | continueStatement
+    | breakStatement
     | expressionStatement
     ;
 
@@ -65,6 +67,14 @@ ifStatement
 
 returnStatement
     : RETURN expression ';'
+    ;
+
+breakStatement
+    : BREAK expression ';'
+    ;
+
+continueStatement
+    : CONTINUE expression ';'
     ;
 
 block
@@ -164,6 +174,8 @@ FALSE       : 'false';
 NULL        : 'null';
 IF          : 'if';
 ELSE        : 'else';
+BREAK       : 'break';
+CONTINUE    : 'continue';
 RETURN      : 'return';
 
 // Operators

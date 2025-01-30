@@ -31,6 +31,8 @@ impl Parser {
             TokenType::While => Some(self.while_statement()),
             TokenType::For => Some(self.for_statement()),
             TokenType::If => Some(self.if_statement()),
+            TokenType::Break => Some(self.break_statement()),
+            TokenType::Continue => Some(self.continue_statement()),
             TokenType::Return => Some(self.return_statement()),
             _ => Some(self.expression_statement()),
         }
@@ -220,6 +222,18 @@ impl Parser {
             then_branch,
             else_branch,
         }
+    }
+
+    fn break_statement(&mut self) -> Statement {
+        self.consume(TokenType::Break, "Expected 'break' keyword");
+        self.consume(TokenType::Semicolon, "Expected ';' after break statement");
+        Statement::Break
+    }
+
+    fn continue_statement(&mut self) -> Statement {
+        self.consume(TokenType::Continue, "Expected 'continue' keyword");
+        self.consume(TokenType::Semicolon, "Expected ';' after continue statement");
+        Statement::Continue
     }
 
     fn return_statement(&mut self) -> Statement {
@@ -442,23 +456,18 @@ impl Parser {
             if self.check(TokenType::LeftParen) {
                 // Method call
                 self.advance();
-                let arguments = if !self.check(TokenType::RightParen) {
-                    Some(self.argument_list())
-                } else {
-                    None
-                };
+                let arguments = self.argument_list();
                 self.consume(TokenType::RightParen, "Expected ')' after method arguments");
-                expr = Expression::MemberAccess {
+                expr = Expression::MethodAccess {
                     object: Box::new(expr),
                     member,
-                    arguments,
+                    arguments
                 };
             } else {
                 // Property access
-                expr = Expression::MemberAccess {
+                expr = Expression::FieldAccess {
                     object: Box::new(expr),
                     member,
-                    arguments: None,
                 };
             }
         } else if self.match_token(TokenType::LeftBracket) {
@@ -503,12 +512,7 @@ impl Parser {
     }
 
     fn object_construction(&mut self) -> Expression {
-        let type_name = Some(
-            self.type_identifier()
-                .split('.')
-                .map(String::from)
-                .collect(),
-        );
+        let type_name = Some(self.type_identifier());
 
         self.consume(TokenType::LeftBrace, "Expected '{' after object type");
 
@@ -718,7 +722,7 @@ mod tests {
             name: "point".to_string(),
             type_annotation: None,
             initializer: Box::new(Expression::ObjectConstruction {
-                type_name: Some(vec!["Point".to_string()]),
+                type_name: Some("Point".to_string()),
                 fields: vec![
                     ("x".to_string(), Expression::NumberLiteral("1".to_string())),
                     ("y".to_string(), Expression::NumberLiteral("2".to_string())),

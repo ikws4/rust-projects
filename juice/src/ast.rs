@@ -29,6 +29,8 @@ pub enum Statement {
         then_branch: Vec<Statement>,
         else_branch: Option<Vec<Statement>>,
     },
+    Break,
+    Continue,
     Return(Option<Expression>),
     Expression(Expression),
 }
@@ -67,10 +69,14 @@ pub enum Expression {
         operator: UnaryOp,
         operand: Box<Expression>,
     },
-    MemberAccess {
+    MethodAccess {
         object: Box<Expression>,
         member: String,
-        arguments: Option<Vec<Expression>>,
+        arguments: Vec<Expression>,
+    },
+    FieldAccess {
+        object: Box<Expression>,
+        member: String,
     },
     ArrayAccess {
         array: Box<Expression>,
@@ -81,7 +87,7 @@ pub enum Expression {
         value: Box<Expression>,
     },
     ObjectConstruction {
-        type_name: Option<Vec<String>>,
+        type_name: Option<String>,
         fields: Vec<(String, Expression)>,
     },
     ArrayConstruction {
