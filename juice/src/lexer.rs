@@ -75,7 +75,12 @@ impl<'a> Lexer<'a> {
         };
 
         let lexeme_len = lexeme.len();
-        Token::new(token_type, lexeme, self.line, self.column - lexeme_len)
+        Token::new(
+            token_type,
+            &lexeme,
+            self.line,
+            self.column - lexeme_len,
+        )
     }
 
     fn read_number(&mut self, first_char: char) -> Token {
@@ -97,7 +102,7 @@ impl<'a> Lexer<'a> {
         let lexeme_len = lexeme.len();
         Token::new(
             TokenType::NumberLiteral,
-            lexeme,
+            &lexeme,
             self.line,
             self.column - lexeme_len,
         )
@@ -115,7 +120,12 @@ impl<'a> Lexer<'a> {
             }
         }
 
-        Token::new(TokenType::StringLiteral, lexeme, self.line, start_column)
+        Token::new(
+            TokenType::StringLiteral,
+            &lexeme,
+            self.line,
+            start_column,
+        )
     }
 
     fn read_comment(&mut self) {
@@ -134,68 +144,68 @@ impl<'a> Lexer<'a> {
             #[cfg_attr(rustfmt, rustfmt_skip)]
             match c {
                 // Single-character tokens
-                '(' => Token::new(TokenType::LeftParen, "(".to_string(), self.line, self.column - 1),
-                ')' => Token::new(TokenType::RightParen, ")".to_string(), self.line, self.column - 1),
-                '{' => Token::new(TokenType::LeftBrace, "{".to_string(), self.line, self.column - 1),
-                '}' => Token::new(TokenType::RightBrace, "}".to_string(), self.line, self.column - 1),
-                '[' => Token::new(TokenType::LeftBracket, "[".to_string(), self.line, self.column - 1),
-                ']' => Token::new(TokenType::RightBracket, "]".to_string(), self.line, self.column - 1),
-                '.' => Token::new(TokenType::Dot, ".".to_string(), self.line, self.column - 1),
-                ',' => Token::new(TokenType::Comma, ",".to_string(), self.line, self.column - 1),
-                ':' => Token::new(TokenType::Colon, ":".to_string(), self.line, self.column - 1),
-                ';' => Token::new(TokenType::Semicolon, ";".to_string(), self.line, self.column - 1),
-                '+' => Token::new(TokenType::Plus, "+".to_string(), self.line, self.column - 1),
-                '-' => Token::new(TokenType::Minus, "-".to_string(), self.line, self.column - 1),
-                '*' => Token::new(TokenType::Star, "*".to_string(), self.line, self.column - 1),
-                '%' => Token::new(TokenType::Percent, "%".to_string(), self.line, self.column - 1),
+                '(' => Token::new(TokenType::LeftParen, "(", self.line, self.column - 1),
+                ')' => Token::new(TokenType::RightParen, ")", self.line, self.column - 1),
+                '{' => Token::new(TokenType::LeftBrace, "{", self.line, self.column - 1),
+                '}' => Token::new(TokenType::RightBrace, "}", self.line, self.column - 1),
+                '[' => Token::new(TokenType::LeftBracket, "[", self.line, self.column - 1),
+                ']' => Token::new(TokenType::RightBracket, "]", self.line, self.column - 1),
+                '.' => Token::new(TokenType::Dot, ".", self.line, self.column - 1),
+                ',' => Token::new(TokenType::Comma, ",", self.line, self.column - 1),
+                ':' => Token::new(TokenType::Colon, ":", self.line, self.column - 1),
+                ';' => Token::new(TokenType::Semicolon, ";", self.line, self.column - 1),
+                '+' => Token::new(TokenType::Plus, "+", self.line, self.column - 1),
+                '-' => Token::new(TokenType::Minus, "-", self.line, self.column - 1),
+                '*' => Token::new(TokenType::Star, "*", self.line, self.column - 1),
+                '%' => Token::new(TokenType::Percent, "%", self.line, self.column - 1),
 
                 // Two-character tokens
                 '=' => {
                     if let Some(&'=') = self.peek() {
                         self.advance();
-                        Token::new(TokenType::EqualEqual, "==".to_string(), self.line, self.column - 2)
+                        Token::new(TokenType::EqualEqual, "==", self.line, self.column - 2)
                     } else {
-                        Token::new(TokenType::Equal, "=".to_string(), self.line, self.column - 1)
+                        Token::new(TokenType::Equal, "=", self.line, self.column - 1)
                     }
                 }
                 '!' => {
                     if let Some(&'=') = self.peek() {
                         self.advance();
-                        Token::new(TokenType::BangEqual, "!=".to_string(), self.line, self.column - 2)
+                        Token::new(TokenType::BangEqual, "!=", self.line, self.column - 2)
                     } else {
-                        Token::new(TokenType::Bang, "!".to_string(), self.line, self.column - 1)
+                        Token::new(TokenType::Bang, "!", self.line, self.column - 1)
                     }
                 }
                 '>' => {
                     if let Some(&'=') = self.peek() {
                         self.advance();
-                        Token::new(TokenType::GreaterEqual, ">=".to_string(), self.line, self.column - 2)
+                        Token::new(TokenType::GreaterEqual, ">=", self.line, self.column - 2)
                     } else {
-                        Token::new(TokenType::Greater, ">".to_string(), self.line, self.column - 1)
+                        Token::new(TokenType::Greater, ">", self.line, self.column - 1)
                     }
                 }
                 '<' => {
                     if let Some(&'=') = self.peek() {
                         self.advance();
-                        Token::new(TokenType::LessEqual, "<=".to_string(), self.line, self.column - 2)
+                        Token::new(TokenType::LessEqual, "<=", self.line, self.column - 2)
                     } else {
-                        Token::new(TokenType::Less, "<".to_string(), self.line, self.column - 1)
+                        Token::new(TokenType::Less, "<", self.line, self.column - 1)
                     }
                 }
                 '&' => {
                     if let Some(&'&') = self.peek() {
                         self.advance();
-                        Token::new(TokenType::And, "&&".to_string(), self.line, self.column - 2)
+                        Token::new(TokenType::And, "&&", self.line, self.column - 2)
                     } else {
-                        Token::new(TokenType::Invalid, "&".to_string(), self.line, self.column - 1)
+                        Token::new(TokenType::Invalid, "&", self.line, self.column - 1)
                     }
                 }
                 '|' => {
                     if let Some(&'|') = self.peek() {
                         self.advance();
-                        Token::new(TokenType::Or, "||".to_string(), self.line, self.column - 2)
+                        Token::new(TokenType::Or, "||", self.line, self.column - 2)
                     } else {
-                        Token::new(TokenType::Invalid, "|".to_string(), self.line, self.column - 1)
+                        Token::new(TokenType::Invalid, "|", self.line, self.column - 1)
                     }
                 }
                 '"' => self.read_string(),
@@ -206,15 +216,15 @@ impl<'a> Lexer<'a> {
                             self.read_comment();
                             self.next_token() // skip comment and get next token
                         }
-                        _ => Token::new(TokenType::Slash, "/".to_string(), self.line, self.column - 1),
+                        _ => Token::new(TokenType::Slash, "/", self.line, self.column - 1),
                     }
                 }
                 c if c.is_alphabetic() || c == '_' => self.read_identifier(c),
                 c if c.is_digit(10) => self.read_number(c),
-                _ => Token::new(TokenType::Invalid, c.to_string(), self.line, self.column - 1),
+                _ => Token::new(TokenType::Invalid, &c.to_string(), self.line, self.column - 1),
             }
         } else {
-            Token::new(TokenType::Eof, String::new(), self.line, self.column)
+            Token::new(TokenType::Eof, "", self.line, self.column)
         }
     }
 

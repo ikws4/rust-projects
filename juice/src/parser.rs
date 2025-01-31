@@ -166,14 +166,17 @@ impl Parser {
     }
 
     fn type_identifier(&mut self) -> String {
-        let mut parts = Vec::new();
-        parts.push(self.consume_identifier("Expected type name"));
+        let mut parts = String::new();
+        parts.push_str(self.consume_identifier("Expected type name").as_str());
 
         while self.match_token(TokenType::Dot) {
-            parts.push(self.consume_identifier("Expected identifier after '.'"));
+            parts.push_str(
+                self.consume_identifier("Expected identifier after '.'")
+                    .as_str(),
+            );
         }
 
-        parts.join(".")
+        parts
     }
 
     fn while_statement(&mut self) -> Statement {
@@ -443,11 +446,7 @@ impl Parser {
         let mut expr = self.primary();
 
         if self.match_token(TokenType::LeftParen) {
-            let arguments = if !self.check(TokenType::RightParen) {
-                self.argument_list()
-            } else {
-                Vec::new()
-            };
+            let arguments = self.argument_list();
             self.consume(TokenType::RightParen, "Expected ')' after arguments");
             expr = Expression::Call {
                 callee: Box::new(expr),
@@ -463,7 +462,10 @@ impl Parser {
                 expr = Expression::MethodAccess {
                     object: Box::new(expr),
                     member,
-                    arguments
+                };
+                expr = Expression::Call {
+                    callee: Box::new(expr),
+                    arguments,
                 };
             } else {
                 // Property access
@@ -498,7 +500,7 @@ impl Parser {
         let token = self.advance();
         match token.token_type {
             TokenType::Identifier => Expression::Identifier(token.lexeme),
-            TokenType::StringLiteral => Expression::StringLiteral(token.lexeme),
+            TokenType::StringLiteral => Expression::StringLiteral(token.lexeme[1..token.lexeme.len() - 1].to_string()),
             TokenType::NumberLiteral => Expression::NumberLiteral(token.lexeme),
             TokenType::True => Expression::BoolLiteral(true),
             TokenType::False => Expression::BoolLiteral(false),
@@ -597,6 +599,10 @@ impl Parser {
 
     fn argument_list(&mut self) -> Vec<Expression> {
         let mut arguments = Vec::new();
+
+        if self.check(TokenType::RightParen) {
+            return arguments;
+        }
 
         loop {
             arguments.push(self.expression());

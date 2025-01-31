@@ -1,16 +1,18 @@
-use std::fmt::Display;
+use std::{cell::RefCell, fmt::{Debug, Display}, rc::Rc};
 
-use super::{array::Array, flow::Flow, method::{Method, NativeMethod}, object::Object};
+use super::{
+    array::Array, flow::Flow, method::Method, native_function::NativeFunction, object::Object,
+};
 
 #[derive(Clone, PartialEq)]
 pub enum Value {
     Number(f64),
-    String(String),
     Bool(bool),
-    Object(Object),
-    Method(Method),
-    NativeMethod(NativeMethod),
-    Array(Array),
+    String(Rc<RefCell<String>>),
+    Object(Rc<RefCell<Object>>),
+    Method(Rc<RefCell<Method>>),
+    NativeFunction(Rc<RefCell<NativeFunction>>),
+    Array(Rc<RefCell<Array>>),
     Null,
     Void,
 }
@@ -25,9 +27,9 @@ impl Value {
         }
     }
 
-    pub fn as_string(&self) -> Result<&String, Flow> {
+    pub fn as_string(&self) -> Result<Rc<RefCell<String>>, Flow> {
         match self {
-            Value::String(s) => Ok(s),
+            Value::String(s) => Ok(s.clone()),
             _ => Err(Flow::Error(
                 "Invalid operands for string operation".to_string(),
             )),
@@ -43,27 +45,27 @@ impl Value {
         }
     }
 
-    pub fn as_object(&self) -> Result<&Object, Flow> {
+    pub fn as_object(&self) -> Result<Rc<RefCell<Object>>, Flow> {
         match self {
-            Value::Object(o) => Ok(o),
+            Value::Object(o) => Ok(o.clone()),
             _ => Err(Flow::Error(
                 "Invalid operands for object operation".to_string(),
             )),
         }
     }
 
-    pub fn as_array(&self) -> Result<&Array, Flow> {
+    pub fn as_array(&self) -> Result<Rc<RefCell<Array>>, Flow> {
         match self {
-            Value::Array(a) => Ok(a),
+            Value::Array(a) => Ok(a.clone()),
             _ => Err(Flow::Error(
                 "Invalid operands for array operation".to_string(),
             )),
         }
     }
 
-    pub fn as_method(&self) -> Result<&Method, Flow> {
+    pub fn as_method(&self) -> Result<Rc<RefCell<Method>>, Flow> {
         match self {
-            Value::Method(m) => Ok(m),
+            Value::Method(m) => Ok(m.clone()),
             _ => Err(Flow::Error(
                 "Invalid operands for method operation".to_string(),
             )),
@@ -79,7 +81,7 @@ impl Value {
 
     pub fn is_native_method(&self) -> bool {
         match self {
-            Value::NativeMethod(_) => true,
+            Value::NativeFunction(_) => true,
             _ => false,
         }
     }
@@ -124,7 +126,9 @@ impl Value {
     pub fn add(&self, rhs: &Value) -> Result<Value, Flow> {
         match (self, rhs) {
             (Value::Number(a), Value::Number(b)) => Ok(Value::Number(a + b)),
-            (Value::String(a), Value::String(b)) => Ok(Value::String(format!("{}{}", a, b))),
+            (Value::String(a), Value::String(b)) => {
+                Ok(Value::String(Rc::new(RefCell::new(format!("{}{}", a.borrow(), b.borrow())))))
+            }
             _ => Err(Flow::Error(
                 "Invalid operands for add operation".to_string(),
             )),
@@ -143,7 +147,6 @@ impl Value {
     pub fn mul(&self, rhs: &Value) -> Result<Value, Flow> {
         match (self, rhs) {
             (Value::Number(a), Value::Number(b)) => Ok(Value::Number(a * b)),
-            (Value::String(s), Value::Number(n)) => Ok(Value::String(s.repeat(*n as usize))),
             _ => Err(Flow::Error(
                 "Invalid operands for multiplication operation".to_string(),
             )),
@@ -227,38 +230,44 @@ impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::Number(n) => write!(f, "{}", n),
-            Value::String(s) => write!(f, "{}", s),
+            Value::String(s) => write!(f, "{}", s.borrow()),
             Value::Bool(b) => write!(f, "{}", b),
             Value::Array(arr) => {
                 write!(f, "[")?;
-                let elements = arr.elements.borrow();
-                for (i, elem) in elements.iter().enumerate() {
+                for (i, elem) in arr.borrow().elements.iter().enumerate() {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
-                    elem.fmt(f)?;
+                    write!(f, "{}", elem)?;
                 }
                 write!(f, "]")
             }
             Value::Object(obj) => {
                 write!(f, "{{ ")?;
                 let mut first = true;
-                for (key, val) in obj.fields.borrow().iter() {
+                for (key, val) in obj.borrow().fields.iter() {
                     if !first {
                         write!(f, ", ")?;
                     }
                     first = false;
-                    write!(f, "{} = ", key)?;
-                    val.fmt(f)?;
+                    write!(f, "{} = {}", key, val)?;
                 }
                 write!(f, " }}")
             }
             Value::Method(method) => {
-                write!(f, "<method {}>", method.declaration.signature.name)
+                write!(f, "<method {}>", method.borrow().declaration.signature.name)
             }
-            Value::NativeMethod(method) => write!(f, "<native method {:p}>", method.function),
+            Value::NativeFunction(method) => {
+                write!(f, "<native method {:p}>", method.borrow().function)
+            }
             Value::Null => write!(f, "null"),
             Value::Void => write!(f, "void"),
         }
+    }
+}
+
+impl Debug for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
     }
 }

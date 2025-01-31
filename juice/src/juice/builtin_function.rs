@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use super::{array::Array, flow::Flow, value::Value};
 
 fn str_internal(value: &Value) -> Result<String, Flow> {
@@ -5,7 +7,7 @@ fn str_internal(value: &Value) -> Result<String, Flow> {
 }
 
 pub fn str(values: &Vec<Value>) -> Result<Value, Flow> {
-    Ok(Value::String(str_internal(&values[0])?))
+    Ok(Value::String(Rc::new(RefCell::new(str_internal(&values[0])?))))
 }
 
 pub fn assert(values: &Vec<Value>) -> Result<Value, Flow> {
@@ -18,7 +20,7 @@ pub fn assert(values: &Vec<Value>) -> Result<Value, Flow> {
 
 pub fn addr(values: &Vec<Value>) -> Result<Value, Flow> {
     let address = format!("{:p}", &values[0]);
-    Ok(Value::String(address))
+    Ok(Value::String(Rc::new(RefCell::new(address))))
 }
 
 pub fn print(values: &Vec<Value>) -> Result<Value, Flow> {
@@ -34,8 +36,8 @@ pub fn print(values: &Vec<Value>) -> Result<Value, Flow> {
 
 pub fn length(values: &Vec<Value>) -> Result<Value, Flow> {
     match &values[0] {
-        Value::String(s) => Ok(Value::Number(s.len() as f64)),
-        Value::Array(arr) => Ok(Value::Number(arr.elements.borrow().len() as f64)),
+        Value::String(s) => Ok(Value::Number(s.borrow().len() as f64)),
+        Value::Array(arr) => Ok(Value::Number(arr.borrow().elements.len() as f64)),
         _ => Err(Flow::Error(
             "Cannot get length of non-string/array value".to_string(),
         )),
@@ -58,5 +60,5 @@ pub fn range(values: &Vec<Value>) -> Result<Value, Flow> {
         x += step;
     }
 
-    Ok(Value::Array(Array::new(range)))
+    Ok(Value::Array(Rc::new(RefCell::new(Array::new(range)))))
 }

@@ -74,7 +74,6 @@ pub enum Expression {
     MethodAccess {
         object: Box<Expression>,
         member: String,
-        arguments: Vec<Expression>,
     },
     FieldAccess {
         object: Box<Expression>,

@@ -14,16 +14,16 @@ impl Env {
         }
     }
 
-    pub fn define(&mut self, name: String, value: Value) -> Result<Value, Flow> {
-        if self.values.contains_key(&name) {
+    pub fn define(&mut self, name: &str, value: Value) -> Result<Value, Flow> {
+        if self.values.contains_key(name) {
             return Err(Flow::Error("Variable already defined".to_string()));
         }
 
-        self.values.insert(name, value);
+        self.values.insert(name.to_string(), value);
         Ok(Value::Void)
     }
 
-    pub fn get(&self, name: &String) -> Result<Value, Flow> {
+    pub fn get(&self, name: &str) -> Result<Value, Flow> {
         if self.values.contains_key(name) {
             return Ok(self.values.get(name).unwrap().clone());
         }
@@ -35,9 +35,9 @@ impl Env {
         Err(Flow::Error(format!("Variable {} not defined", name)))
     }
 
-    pub fn set(&mut self, name: String, value: Value) -> Result<Value, Flow> {
-        if self.values.contains_key(&name) {
-            self.values.insert(name, value);
+    pub fn set(&mut self, name: &str, value: Value) -> Result<Value, Flow> {
+        if self.values.contains_key(name) {
+            self.values.insert(name.to_string(), value);
             return Ok(Value::Void);
         }
 

@@ -27,11 +27,11 @@ trait Updatable {
 object Text : Renderable + Updatable {
   init(text) { }
 
-  update(dt: number);
+  update(dt: number) { }
 
   render(context) {
     // Rendering code ...
-    print("render text");
+    print("render text:", text);
   }
 }
 
@@ -40,7 +40,7 @@ object Circle : Renderable {
 
   render(context) {
     // Rendering code ...
-    print("render circle");
+    print("render circle:", position, radius);
   }
 }
 

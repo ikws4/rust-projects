@@ -69,10 +69,10 @@ pub struct Token {
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, lexeme: String, line: usize, column: usize) -> Self {
+    pub fn new(token_type: TokenType, lexeme: &str, line: usize, column: usize) -> Self {
         Token {
             token_type,
-            lexeme,
+            lexeme: lexeme.to_string(),
             line,
             column,
         }

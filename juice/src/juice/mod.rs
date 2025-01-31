@@ -6,3 +6,5 @@ mod method;
 mod array;
 mod env;
 mod flow;
+mod traits;
+mod native_function;
