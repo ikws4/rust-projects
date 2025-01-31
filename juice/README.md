@@ -11,13 +11,9 @@ Here's an example of the language:
 
 ```
 object RenderContext {
-  init() {
-    // Initialzie the context object ...
-  }
+  init() { }
 
-  deinit() {
-    // Release the resources ...
-  }
+  deinit() { }
 }
 
 trait Renderable {
@@ -29,23 +25,22 @@ trait Updatable {
 }
 
 object Text : Renderable + Updatable {
-  init(text) {
-    this.text = text;
-  }
+  init(text) { }
+
+  update(dt: number);
 
   render(context) {
     // Rendering code ...
+    print("render text");
   }
 }
 
 object Circle : Renderable {
-  init(position, radius) {
-    this.position = position;
-    this.text = text;
-  }
+  init(position, radius) { }
 
   render(context) {
     // Rendering code ...
+    print("render circle");
   }
 }
 
@@ -63,13 +58,15 @@ var renderables: Renderable = [
   }
 ];
 
-while (true) {
+var frame = 0;
+while (frame < 60) {
   for (var renderable in renderables) {
     renderable.render(context);
   }
+  frame = frame + 1;
 }
 ```
 
 ## Appendix
 
-- The Antlr4 Grammar: [Juice.g4](./Juice.g4)
+- The Antlr4 Grammar: [Juice.g4](./Juice/Juice.g4)

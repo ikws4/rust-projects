@@ -218,7 +218,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn tokens(&mut self) -> Vec<Token> {
+    pub fn lex(&mut self) -> Vec<Token> {
         let mut tokens = Vec::new();
         loop {
             let token = self.next_token();

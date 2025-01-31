@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     Object {
@@ -88,7 +90,7 @@ pub enum Expression {
     },
     ObjectConstruction {
         type_name: Option<String>,
-        fields: Vec<(String, Expression)>,
+        fields: HashMap<String, Expression>,
     },
     ArrayConstruction {
         elements: Vec<Expression>,

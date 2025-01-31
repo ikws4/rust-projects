@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::ast::{
     BinaryOp, Expression, MethodDeclaration, MethodSignature, Parameter, Statement, UnaryOp,
 };
@@ -516,13 +518,13 @@ impl Parser {
 
         self.consume(TokenType::LeftBrace, "Expected '{' after object type");
 
-        let mut fields = Vec::new();
+        let mut fields = HashMap::new();
         while !self.check(TokenType::RightBrace) {
             let name = self.consume_identifier("Expected field name");
 
             self.consume(TokenType::Equal, "Expected '=' after field name");
             let value = self.expression();
-            fields.push((name, value));
+            fields.insert(name, value);
 
             // Allow optional comma, including trailing comma
             if !self.match_token(TokenType::Comma) {
@@ -542,13 +544,13 @@ impl Parser {
     }
 
     fn anonymous_object_construction(&mut self) -> Expression {
-        let mut fields = Vec::new();
+        let mut fields = HashMap::new();
         while !self.check(TokenType::RightBrace) {
             let name = self.consume_identifier("Expected field name");
 
             self.consume(TokenType::Equal, "Expected '=' after field name");
             let value = self.expression();
-            fields.push((name, value));
+            fields.insert(name, value);
 
             // Allow optional comma, including trailing comma
             if !self.match_token(TokenType::Comma) {
@@ -677,7 +679,7 @@ mod tests {
 
     fn parse(input: &str) -> Vec<Statement> {
         let mut lexer = Lexer::new(input);
-        let tokens = lexer.tokens();
+        let tokens = lexer.lex();
 
         let mut parser = Parser::new(tokens);
         let ast = parser.parse();
@@ -723,10 +725,10 @@ mod tests {
             type_annotation: None,
             initializer: Box::new(Expression::ObjectConstruction {
                 type_name: Some("Point".to_string()),
-                fields: vec![
+                fields: HashMap::from([
                     ("x".to_string(), Expression::NumberLiteral("1".to_string())),
                     ("y".to_string(), Expression::NumberLiteral("2".to_string())),
-                ],
+                ]),
             }),
         }];
 
