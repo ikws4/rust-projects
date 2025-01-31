@@ -230,33 +230,33 @@ impl Display for Value {
             Value::String(s) => write!(f, "{}", s),
             Value::Bool(b) => write!(f, "{}", b),
             Value::Array(arr) => {
-                write!(f, "[");
+                write!(f, "[")?;
                 let elements = arr.elements.borrow();
                 for (i, elem) in elements.iter().enumerate() {
                     if i > 0 {
-                        write!(f, ", ");
+                        write!(f, ", ")?;
                     }
-                    elem.fmt(f);
+                    elem.fmt(f)?;
                 }
                 write!(f, "]")
             }
             Value::Object(obj) => {
-                write!(f, "{{ ");
+                write!(f, "{{ ")?;
                 let mut first = true;
                 for (key, val) in obj.fields.borrow().iter() {
                     if !first {
-                        write!(f, ", ");
+                        write!(f, ", ")?;
                     }
                     first = false;
-                    write!(f, "{} = ", key);
-                    val.fmt(f);
+                    write!(f, "{} = ", key)?;
+                    val.fmt(f)?;
                 }
                 write!(f, " }}")
             }
             Value::Method(method) => {
                 write!(f, "<method {}>", method.declaration.signature.name)
             }
-            Value::NativeMethod(_) => write!(f, "<native method>"),
+            Value::NativeMethod(method) => write!(f, "<native method {:p}>", method.function),
             Value::Null => write!(f, "null"),
             Value::Void => write!(f, "void"),
         }

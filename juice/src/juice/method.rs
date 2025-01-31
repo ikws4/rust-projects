@@ -8,17 +8,17 @@ pub trait TMethod {
 
 #[derive(Clone, PartialEq)]
 pub struct NativeMethod {
-    function: Rc<fn(&Vec<Value>) -> Result<Value, Flow>>,
-    min_arity: usize,
-    max_arity: usize,
+    pub function: Rc<fn(&Vec<Value>) -> Result<Value, Flow>>,
+    pub min_arity: usize,
+    pub max_arity: usize,
 }
 
 #[derive(Clone, PartialEq)]
 pub struct Method {
     pub declaration: MethodDeclaration,
-    object: Object,
-    min_arity: usize,
-    max_arity: usize,
+    pub object: Object,
+    pub min_arity: usize,
+    pub max_arity: usize,
 }
 
 impl NativeMethod {
