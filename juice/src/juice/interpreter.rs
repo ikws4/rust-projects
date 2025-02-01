@@ -1,19 +1,19 @@
 use super::{
-    array::Array, builtin_function, env::Env, flow::Flow, method::Method,
-    native_function::NativeFunction, object::Object, traits::TCall, value::Value,
+    array::Array, builtin_function, flow::Flow, method::Method, native_function::NativeFunction,
+    object::Object, traits::TCall, value::Value,
 };
 use crate::ast::{BinaryOp, Expression, MethodDeclaration, MethodSignature, Statement, UnaryOp};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 pub struct Interpreter {
-    pub env: Rc<RefCell<Env>>,
+    pub env: Rc<RefCell<Object>>,
     pub object_prototypes: HashMap<String, Object>,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
         Self {
-            env: Rc::new(RefCell::new(Env::new(None))),
+            env: Rc::new(RefCell::new(Object::new())),
             object_prototypes: HashMap::new(),
         }
     }
@@ -35,16 +35,18 @@ impl Interpreter {
         min_arity: usize,
         max_arity: usize,
     ) -> Result<&mut Self, Flow> {
-        let native_method = NativeFunction::new(function, min_arity, max_arity);
-        self.env.borrow_mut().define(
-            name,
-            Value::NativeFunction(Rc::new(RefCell::new(native_method))),
+        let native_function =NativeFunction::new(function, min_arity, max_arity);
+        let native_function = Rc::new(RefCell::new(native_function));
+
+        self.env.borrow_mut().define_value(
+            name.to_string(),
+            Value::NativeFunction(native_function),
         )?;
         Ok(self)
     }
 
     pub fn interprete(&mut self, statements: &Vec<Statement>) -> Result<Value, Flow> {
-        let ret = self.execute_statements(statements)?;
+        self.execute_statements(statements)?;
         Ok(Value::Void)
     }
 
@@ -54,7 +56,7 @@ impl Interpreter {
         closure: Closure,
     ) -> Result<Value, Flow>
     where
-        Closure: FnOnce(Rc<RefCell<Env>>) -> Result<Value, Flow>,
+        Closure: FnOnce(Rc<RefCell<Object>>) -> Result<Value, Flow>,
     {
         let env = self.begin_block();
         closure(env)?;
@@ -68,8 +70,9 @@ impl Interpreter {
         self.end_block()
     }
 
-    fn begin_block(&mut self) -> Rc<RefCell<Env>> {
-        let env = Rc::new(RefCell::new(Env::new(Some(self.env.clone()))));
+    fn begin_block(&mut self) -> Rc<RefCell<Object>> {
+        let env = Rc::new(RefCell::new(Object::new()));
+        env.borrow_mut().parent = Some(self.env.clone());
         self.env = env.clone();
         env
     }
@@ -136,7 +139,7 @@ impl Interpreter {
         for method_decl in methods {
             let name = method_decl.signature.name.clone();
             let method = Method::new(method_decl.clone());
-            object.define_method(name, method)?;
+            object.set_method(name, method)?;
         }
         self.object_prototypes.insert(name.clone(), object);
 
@@ -160,7 +163,7 @@ impl Interpreter {
         initializer: &Expression,
     ) -> Result<Value, Flow> {
         let value = self.evaluate_expression(initializer)?;
-        self.env.borrow_mut().define(name, value)
+        self.env.borrow_mut().define_value(name.to_string(), value)
     }
 
     pub fn execute_while(
@@ -191,7 +194,8 @@ impl Interpreter {
         let iterator = value.as_array()?;
         for value in iterator.borrow().elements.iter() {
             let returns = self.execute_block_with_closure(body, |env| {
-                env.borrow_mut().define(variable, value.clone())?;
+                env.borrow_mut()
+                    .define_value(variable.to_string(), value.clone())?;
                 Ok(Value::Void)
             });
 
@@ -263,20 +267,19 @@ impl Interpreter {
         callee: &Expression,
         arguments: &Vec<Expression>,
     ) -> Result<Value, Flow> {
-        let value = self.evaluate_expression(callee)?;
+        let callee = self.evaluate_expression(callee)?;
 
         let mut args = Vec::new();
         for arg in arguments {
-            let value = self.evaluate_expression(arg)?;
-            args.push(value);
+            let arg = self.evaluate_expression(arg)?;
+            args.push(arg);
         }
 
-        let ret = match value {
+        match callee {
             Value::Method(method) => method.borrow().call(self, &args),
             Value::NativeFunction(native_method) => native_method.borrow().call(self, &args),
             _ => Err(Flow::Error("Can only call methods on objects".to_string())),
-        };
-        ret
+        }
     }
 
     fn evaluate_binary(
@@ -361,7 +364,9 @@ impl Interpreter {
 
         match target {
             Expression::Identifier(name) => {
-                self.env.borrow_mut().set(name, value.clone())?;
+                self.env
+                    .borrow_mut()
+                    .set_value(name.to_string(), value.clone())?;
                 Ok(Value::Void)
             }
             Expression::FieldAccess { object, member } => {
@@ -436,7 +441,7 @@ impl Interpreter {
 
                     for (name, value) in fields {
                         let value = self.evaluate_expression(value)?;
-                        object.borrow_mut().set_value(name.clone(), value)?;
+                        object.borrow_mut().define_value(name.clone(), value)?;
                     }
 
                     Ok(Value::Object(object))
@@ -447,7 +452,7 @@ impl Interpreter {
             let mut object = Object::new();
             for (name, value) in fields {
                 let value = self.evaluate_expression(value)?;
-                object.set_value(name.clone(), value)?;
+                object.define_value(name.clone(), value)?;
             }
             Ok(Value::Object(Rc::new(RefCell::new(object))))
         }
@@ -465,7 +470,7 @@ impl Interpreter {
     }
 
     fn evaluate_identifier(&mut self, name: &String) -> Result<Value, Flow> {
-        self.env.borrow().get(name)
+        self.env.borrow().get_value(name)
     }
 }
 
@@ -506,6 +511,21 @@ mod tests {
             assert(point.x, 100);
             assert(point.y, 12);
         "#,
+        );
+    }
+
+    #[test]
+    fn test_array() {
+        eval(
+            r#"
+            var array = [1, 2, 3];
+            assert(array[0], 1);
+            assert(array[1], 2);
+            assert(array[2], 3);
+
+            array[0] = 10;
+            assert(array[0], 10);
+            "#,
         );
     }
 

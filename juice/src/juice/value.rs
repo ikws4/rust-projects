@@ -245,7 +245,7 @@ impl Display for Value {
             Value::Object(obj) => {
                 write!(f, "{{ ")?;
                 let mut first = true;
-                for (key, val) in obj.borrow().fields.iter() {
+                for (key, val) in obj.borrow().values.iter() {
                     if !first {
                         write!(f, ", ")?;
                     }
