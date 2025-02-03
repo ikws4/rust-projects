@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::env::args;
 
 use crate::ast::{
     BinaryOp, Expression, MethodDeclaration, MethodSignature, Parameter, Statement, UnaryOp,
@@ -237,7 +238,10 @@ impl Parser {
 
     fn continue_statement(&mut self) -> Statement {
         self.consume(TokenType::Continue, "Expected 'continue' keyword");
-        self.consume(TokenType::Semicolon, "Expected ';' after continue statement");
+        self.consume(
+            TokenType::Semicolon,
+            "Expected ';' after continue statement",
+        );
         Statement::Continue
     }
 
@@ -445,42 +449,32 @@ impl Parser {
     fn postfix_expression(&mut self) -> Expression {
         let mut expr = self.primary();
 
-        if self.match_token(TokenType::LeftParen) {
-            let arguments = self.argument_list();
-            self.consume(TokenType::RightParen, "Expected ')' after arguments");
-            expr = Expression::Call {
-                callee: Box::new(expr),
-                arguments,
-            };
-        } else if self.match_token(TokenType::Dot) {
-            let member = self.consume_identifier("Expected property name after '.'");
-            if self.check(TokenType::LeftParen) {
-                // Method call
-                self.advance();
+        while self.match_token_any_no_advance(&[
+            TokenType::LeftParen,
+            TokenType::Dot,
+            TokenType::LeftBracket,
+        ]) {
+            if self.match_token(TokenType::LeftParen) {
                 let arguments = self.argument_list();
-                self.consume(TokenType::RightParen, "Expected ')' after method arguments");
-                expr = Expression::MethodAccess {
-                    object: Box::new(expr),
-                    member,
-                };
+                self.consume(TokenType::RightParen, "Expected ')' after arguments");
                 expr = Expression::Call {
                     callee: Box::new(expr),
                     arguments,
                 };
-            } else {
-                // Property access
-                expr = Expression::FieldAccess {
+            } else if self.match_token(TokenType::Dot) {
+                let token = self.advance();
+                expr = Expression::DotAccess {
                     object: Box::new(expr),
-                    member,
+                    identifier: Box::new(self.identifier(token)),
+                };
+            } else if self.match_token(TokenType::LeftBracket) {
+                let index = Box::new(self.expression());
+                self.consume(TokenType::RightBracket, "Expected ']' after array index");
+                expr = Expression::ArrayAccess {
+                    array: Box::new(expr),
+                    index,
                 };
             }
-        } else if self.match_token(TokenType::LeftBracket) {
-            let index = Box::new(self.expression());
-            self.consume(TokenType::RightBracket, "Expected ']' after array index");
-            expr = Expression::ArrayAccess {
-                array: Box::new(expr),
-                index,
-            };
         }
 
         expr
@@ -499,14 +493,23 @@ impl Parser {
 
         let token = self.advance();
         match token.token_type {
-            TokenType::Identifier => Expression::Identifier(token.lexeme),
-            TokenType::StringLiteral => Expression::StringLiteral(token.lexeme[1..token.lexeme.len() - 1].to_string()),
+            TokenType::Identifier => self.identifier(token),
+            TokenType::StringLiteral => {
+                Expression::StringLiteral(token.lexeme[1..token.lexeme.len() - 1].to_string())
+            }
             TokenType::NumberLiteral => Expression::NumberLiteral(token.lexeme),
             TokenType::True => Expression::BoolLiteral(true),
             TokenType::False => Expression::BoolLiteral(false),
             TokenType::Null => Expression::Null,
             _ => panic!("Expected expression, but found {:?}", token),
         }
+    }
+
+    fn identifier(&mut self, token: Token) -> Expression {
+        if self.peek().token_type == TokenType::LeftParen {
+            return Expression::CallableIdentifier(token.lexeme);
+        }
+        Expression::Identifier(token.lexeme)
     }
 
     fn group(&mut self) -> Expression {
@@ -637,11 +640,20 @@ impl Parser {
         true
     }
 
+    fn match_token_any_no_advance(&mut self, token_types: &[TokenType]) -> bool {
+        for token_type in token_types {
+            if self.peek().token_type == token_type.clone() {
+                return true;
+            }
+        }
+        false
+    }
+
     fn consume(&mut self, token_type: TokenType, message: &str) -> Token {
         if self.check(token_type) {
             self.advance()
         } else {
-            panic!("{}", message);
+            panic!("{}, {:?}", message, self.peek());
         }
     }
 

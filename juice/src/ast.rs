@@ -71,13 +71,9 @@ pub enum Expression {
         operator: UnaryOp,
         operand: Box<Expression>,
     },
-    MethodAccess {
+    DotAccess {
         object: Box<Expression>,
-        member: String,
-    },
-    FieldAccess {
-        object: Box<Expression>,
-        member: String,
+        identifier: Box<Expression>
     },
     ArrayAccess {
         array: Box<Expression>,
@@ -95,6 +91,7 @@ pub enum Expression {
         elements: Vec<Expression>,
     },
     Identifier(String),
+    CallableIdentifier(String),
     StringLiteral(String),
     NumberLiteral(String),
     BoolLiteral(bool),

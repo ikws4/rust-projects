@@ -1,11 +1,10 @@
-use super::{flow::Flow, method::Method, value::Value};
+use super::{flow::Flow, method::Method, native_function::{self, NativeFunction}, value::Value};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 #[derive(Clone, PartialEq)]
 pub struct Object {
     pub values: HashMap<String, Value>,
     pub methods: HashMap<String, Value>,
-    pub parent: Option<Rc<RefCell<Object>>>,
 }
 
 impl Object {
@@ -13,7 +12,6 @@ impl Object {
         Self {
             values: HashMap::new(),
             methods: HashMap::new(),
-            parent: None,
         }
     }
 
@@ -21,7 +19,6 @@ impl Object {
         Self {
             values: HashMap::new(),
             methods: self.methods.clone(),
-            parent: self.parent.clone(),
         }
     }
 
@@ -30,15 +27,17 @@ impl Object {
             return Ok(value.clone());
         }
 
-        if let Some(parent) = &self.parent {
-            return parent.borrow().get_method(name);
-        }
-
         Err(Flow::Error(format!("Method {} not found", name)))
     }
 
-    pub fn set_method(&mut self, name: String, method: Method) -> Result<Value, Flow> {
+    pub fn define_method(&mut self, name: String, method: Method) -> Result<Value, Flow> {
         let method = Value::Method(Rc::new(RefCell::new(method)));
+        self.methods.insert(name, method);
+        Ok(Value::Void)
+    }
+
+    pub fn define_native_function(&mut self, name: String, native_function: NativeFunction) -> Result<Value, Flow> {
+        let method = Value::NativeFunction(Rc::new(RefCell::new(native_function)));
         self.methods.insert(name, method);
         Ok(Value::Void)
     }
@@ -46,10 +45,6 @@ impl Object {
     pub fn get_value(&self, name: &str) -> Result<Value, Flow> {
         if let Some(value) = self.values.get(name) {
             return Ok(value.clone());
-        }
-
-        if let Some(parent) = &self.parent {
-            return parent.borrow().get_value(name);
         }
 
         Err(Flow::Error(format!("Field {} not found", name)))
@@ -70,10 +65,6 @@ impl Object {
             return Ok(Value::Void);
         }
 
-        if let Some(parent) = &mut self.parent {
-            parent.borrow_mut().set_value(name, value)
-        } else {
-            Err(Flow::Error(format!("Variable {} not found", name)))
-        }
+        Err(Flow::Error(format!("Variable {} not found", name)))
     }
 }

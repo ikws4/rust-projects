@@ -47,32 +47,39 @@ impl TCall for Method {
             )));
         }
 
-        let ret = interpreter.execute_block_with_closure(&self.declaration.body, |env| {
-            if let Some(this) = self.this.clone() {
-                // Bind `this` to the object
-                env.borrow_mut().define_value("this".to_string(), Value::Object(this))?;
-            } else {
-                return Err(Flow::Error("Method not bound to an object".to_string()));
-            }
+        if let Some(this) = self.this.clone() {
+            interpreter.env.push(this.clone());
+            interpreter.env.push_default();
+
+            // Bind `this` to the object
+            interpreter
+                .env
+                .define_value("this".to_string(), Value::Object(this))?;
 
             // Bind parameters to arguments
             for (param, arg) in self.declaration.signature.params.iter().zip(arguments) {
-                env.borrow_mut().define_value(param.name.clone(), arg.clone())?;
+                interpreter
+                    .env
+                    .define_value(param.name.clone(), arg.clone())?;
             }
+            let ret = interpreter.execute_statements(&self.declaration.body);
 
-            Ok(Value::Void)
-        });
+            interpreter.env.pop()?;
+            interpreter.env.pop()?;
 
-        match ret {
-            Ok(_) => Ok(Value::Void),
-            Err(flow) => match flow {
-                Flow::Return(value) => Ok(value),
-                Flow::Break => Err(Flow::Error("Break statement outside of loop".to_string())),
-                Flow::Continue => Err(Flow::Error(
-                    "Continue statement outside of loop".to_string(),
-                )),
-                Flow::Error(err) => Err(Flow::Error(err)),
-            },
+            match ret {
+                Ok(_) => Ok(Value::Void),
+                Err(flow) => match flow {
+                    Flow::Return(value) => Ok(value),
+                    Flow::Break => Err(Flow::Error("Break statement outside of loop".to_string())),
+                    Flow::Continue => Err(Flow::Error(
+                        "Continue statement outside of loop".to_string(),
+                    )),
+                    Flow::Error(err) => Err(Flow::Error(err)),
+                },
+            }
+        } else {
+            return Err(Flow::Error("Method not bound to an object".to_string()));
         }
     }
 }

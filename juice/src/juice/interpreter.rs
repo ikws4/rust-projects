@@ -1,19 +1,19 @@
 use super::{
-    array::Array, builtin_function, flow::Flow, method::Method, native_function::NativeFunction,
-    object::Object, traits::TCall, value::Value,
+    array::Array, builtin_function, env::Env, flow::Flow, method::Method,
+    native_function::NativeFunction, object::Object, traits::TCall, value::Value,
 };
 use crate::ast::{BinaryOp, Expression, MethodDeclaration, MethodSignature, Statement, UnaryOp};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 pub struct Interpreter {
-    pub env: Rc<RefCell<Object>>,
+    pub env: Env,
     pub object_prototypes: HashMap<String, Object>,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
         Self {
-            env: Rc::new(RefCell::new(Object::new())),
+            env: Env::new(),
             object_prototypes: HashMap::new(),
         }
     }
@@ -35,13 +35,10 @@ impl Interpreter {
         min_arity: usize,
         max_arity: usize,
     ) -> Result<&mut Self, Flow> {
-        let native_function =NativeFunction::new(function, min_arity, max_arity);
-        let native_function = Rc::new(RefCell::new(native_function));
+        let native_function = NativeFunction::new(function, min_arity, max_arity);
 
-        self.env.borrow_mut().define_value(
-            name.to_string(),
-            Value::NativeFunction(native_function),
-        )?;
+        self.env
+            .define_native_function(name.to_string(), native_function)?;
         Ok(self)
     }
 
@@ -50,41 +47,10 @@ impl Interpreter {
         Ok(Value::Void)
     }
 
-    pub fn execute_block_with_closure<Closure>(
-        &mut self,
-        block: &Vec<Statement>,
-        closure: Closure,
-    ) -> Result<Value, Flow>
-    where
-        Closure: FnOnce(Rc<RefCell<Object>>) -> Result<Value, Flow>,
-    {
-        let env = self.begin_block();
-        closure(env)?;
-        self.execute_statements(block)?;
-        self.end_block()
-    }
-
     pub fn execute_block(&mut self, block: &Vec<Statement>) -> Result<Value, Flow> {
-        self.begin_block();
+        self.env.push_default();
         self.execute_statements(block)?;
-        self.end_block()
-    }
-
-    fn begin_block(&mut self) -> Rc<RefCell<Object>> {
-        let env = Rc::new(RefCell::new(Object::new()));
-        env.borrow_mut().parent = Some(self.env.clone());
-        self.env = env.clone();
-        env
-    }
-
-    fn end_block(&mut self) -> Result<Value, Flow> {
-        let parent_env = self.env.borrow().parent.clone();
-        if let Some(parent_env) = parent_env {
-            self.env = parent_env;
-            Ok(Value::Void)
-        } else {
-            Err(Flow::Error("No parent environment".to_string()))
-        }
+        self.env.pop()
     }
 
     pub fn execute_statements(&mut self, block: &Vec<Statement>) -> Result<Value, Flow> {
@@ -139,7 +105,7 @@ impl Interpreter {
         for method_decl in methods {
             let name = method_decl.signature.name.clone();
             let method = Method::new(method_decl.clone());
-            object.set_method(name, method)?;
+            object.define_method(name, method)?;
         }
         self.object_prototypes.insert(name.clone(), object);
 
@@ -163,7 +129,7 @@ impl Interpreter {
         initializer: &Expression,
     ) -> Result<Value, Flow> {
         let value = self.evaluate_expression(initializer)?;
-        self.env.borrow_mut().define_value(name.to_string(), value)
+        self.env.define_value(name.to_string(), value)
     }
 
     pub fn execute_while(
@@ -193,11 +159,10 @@ impl Interpreter {
         let value = self.evaluate_expression(iterator)?;
         let iterator = value.as_array()?;
         for value in iterator.borrow().elements.iter() {
-            let returns = self.execute_block_with_closure(body, |env| {
-                env.borrow_mut()
-                    .define_value(variable.to_string(), value.clone())?;
-                Ok(Value::Void)
-            });
+            self.env.push_default();
+            self.env.define_value(variable.to_string(), value.clone())?;
+            let returns = self.execute_statements(body);
+            self.env.pop()?;
 
             if let Err(flow) = &returns {
                 match flow {
@@ -240,11 +205,8 @@ impl Interpreter {
                 right,
             } => self.evaluate_binary(left, operator, right),
             Expression::Unary { operator, operand } => self.evaluate_unary(operator, operand),
-            Expression::MethodAccess { object, member } => {
-                self.evaluate_method_access(object, member)
-            }
-            Expression::FieldAccess { object, member } => {
-                self.evaluate_field_access(object, member)
+            Expression::DotAccess { object, identifier } => {
+                self.evaluate_dot_access(object, identifier)
             }
             Expression::ArrayAccess { array, index } => self.evaluate_array_access(array, index),
             Expression::Assignment { target, value } => self.evaluate_assignment(target, value),
@@ -254,9 +216,10 @@ impl Interpreter {
             Expression::ArrayConstruction { elements } => {
                 self.evaluate_array_construction(elements)
             }
+            Expression::CallableIdentifier(name) => self.evaluate_callable_identifier(name),
             Expression::Identifier(name) => self.evaluate_identifier(name),
             Expression::NumberLiteral(n) => Ok(Value::Number(n.parse().unwrap())),
-            Expression::StringLiteral(s) => Ok(Value::String(Rc::new(RefCell::new(s.clone())))), // Remove quotes
+            Expression::StringLiteral(s) => Ok(Value::String(Rc::new(RefCell::new(s.clone())))),
             Expression::BoolLiteral(b) => Ok(Value::Bool(*b)),
             Expression::Null => Ok(Value::Null),
         }
@@ -317,26 +280,18 @@ impl Interpreter {
         }
     }
 
-    fn evaluate_method_access(
+    fn evaluate_dot_access(
         &mut self,
         object: &Expression,
-        member: &String,
+        identifier: &Expression,
     ) -> Result<Value, Flow> {
-        let value = self.evaluate_expression(object)?;
-        let object = value.as_object()?;
-        let method = object.borrow().get_method(member);
-        method
-    }
-
-    fn evaluate_field_access(
-        &mut self,
-        object: &Expression,
-        member: &String,
-    ) -> Result<Value, Flow> {
-        let value = self.evaluate_expression(object)?;
-        let object = value.as_object()?;
-        let value = object.borrow().get_value(member);
-        value
+        let mut value = self.evaluate_expression(object)?;
+        if let Value::Object(object) = &value {
+            self.env.push(object.clone());
+            value = self.evaluate_expression(identifier)?;
+            self.env.pop()?;
+        }
+        Ok(value)
     }
 
     fn evaluate_array_access(
@@ -364,24 +319,7 @@ impl Interpreter {
 
         match target {
             Expression::Identifier(name) => {
-                self.env
-                    .borrow_mut()
-                    .set_value(name.to_string(), value.clone())?;
-                Ok(Value::Void)
-            }
-            Expression::FieldAccess { object, member } => {
-                let object_value = self.evaluate_expression(object)?;
-                let object = object_value.as_object()?;
-                object
-                    .borrow_mut()
-                    .set_value(member.clone(), value.clone())?;
-                Ok(Value::Void)
-            }
-            Expression::ArrayAccess { array, index } => {
-                let array_value = self.evaluate_expression(array)?;
-                let array = array_value.as_array()?;
-                let index = self.evaluate_expression(index)?.as_number()?;
-                array.borrow_mut().set_value(index as i32, value)?;
+                self.env.set_value(name.to_string(), value.clone())?;
                 Ok(Value::Void)
             }
             _ => Err(Flow::Error("Invalid assignment target".to_string())),
@@ -402,6 +340,11 @@ impl Interpreter {
                     for method in object.borrow_mut().methods.values_mut() {
                         let method = method.as_method()?;
                         method.borrow_mut().bind(object.clone());
+                    }
+
+                    for (name, value) in fields {
+                        let value = self.evaluate_expression(value)?;
+                        object.borrow_mut().define_value(name.clone(), value)?;
                     }
 
                     if let Ok(init_method) = object.borrow().get_method("init") {
@@ -439,11 +382,6 @@ impl Interpreter {
                         }
                     }
 
-                    for (name, value) in fields {
-                        let value = self.evaluate_expression(value)?;
-                        object.borrow_mut().define_value(name.clone(), value)?;
-                    }
-
                     Ok(Value::Object(object))
                 }
                 None => Err(Flow::Error(format!("Type {} not defined", type_name))),
@@ -470,7 +408,11 @@ impl Interpreter {
     }
 
     fn evaluate_identifier(&mut self, name: &String) -> Result<Value, Flow> {
-        self.env.borrow().get_value(name)
+        self.env.get_value(name)
+    }
+
+    fn evaluate_callable_identifier(&mut self, name: &String) -> Result<Value, Flow> {
+        self.env.get_method(name)
     }
 }
 
@@ -595,12 +537,7 @@ mod tests {
 
               render(context) {
                 // Rendering code ...
-                print("render text", this.text);
-                this.say();
-              }
-
-              say() {
-                print(",,,y,,,,,,,,,,,,,,,,");
+                print("render text", this, text);
               }
             }
 
@@ -609,7 +546,7 @@ mod tests {
 
               render(context) {
                 // Rendering code ...
-                print("render circle", this.position);
+                print("render circle", this.position, position);
               }
             }
 
