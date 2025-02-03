@@ -1,13 +1,14 @@
-use std::{cell::RefCell, rc::Rc};
-
 use super::{array::Array, flow::Flow, value::Value};
+use std::{cell::RefCell, rc::Rc};
 
 fn str_internal(value: &Value) -> Result<String, Flow> {
     Ok(format!("{}", value))
 }
 
 pub fn str(values: &Vec<Value>) -> Result<Value, Flow> {
-    Ok(Value::String(Rc::new(RefCell::new(str_internal(&values[0])?))))
+    Ok(Value::String(Rc::new(RefCell::new(str_internal(
+        &values[0],
+    )?))))
 }
 
 pub fn assert(values: &Vec<Value>) -> Result<Value, Flow> {
@@ -32,16 +33,6 @@ pub fn print(values: &Vec<Value>) -> Result<Value, Flow> {
     println!("{}", output.join(" "));
 
     Ok(Value::Void)
-}
-
-pub fn length(values: &Vec<Value>) -> Result<Value, Flow> {
-    match &values[0] {
-        Value::String(s) => Ok(Value::Number(s.borrow().len() as f64)),
-        Value::Array(arr) => Ok(Value::Number(arr.borrow().elements.len() as f64)),
-        _ => Err(Flow::Error(
-            "Cannot get length of non-string/array value".to_string(),
-        )),
-    }
 }
 
 pub fn range(values: &Vec<Value>) -> Result<Value, Flow> {

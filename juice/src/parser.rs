@@ -469,9 +469,9 @@ impl Parser {
                 };
             } else if self.match_token(TokenType::LeftBracket) {
                 let index = Box::new(self.expression());
-                self.consume(TokenType::RightBracket, "Expected ']' after array index");
-                expr = Expression::ArrayAccess {
-                    array: Box::new(expr),
+                self.consume(TokenType::RightBracket, "Expected ']' after index");
+                expr = Expression::IndexAccess {
+                    object: Box::new(expr),
                     index,
                 };
             }

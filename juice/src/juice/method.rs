@@ -1,7 +1,6 @@
-use std::{cell::RefCell, rc::Rc};
-
-use super::{flow::Flow, interpreter::Interpreter, object::Object, traits::TCall, value::Value};
+use super::{flow::Flow, interpreter::Interpreter, object::Object, traits::Callable, value::Value};
 use crate::ast::MethodDeclaration;
+use std::{cell::RefCell, rc::Rc};
 
 #[derive(Clone, PartialEq)]
 pub struct Method {
@@ -27,7 +26,7 @@ impl Method {
     }
 }
 
-impl TCall for Method {
+impl Callable for Method {
     fn call(&self, interpreter: &mut Interpreter, arguments: &Vec<Value>) -> Result<Value, Flow> {
         let arity = arguments.len();
         if arity < self.min_arity || arity > self.max_arity {

@@ -75,8 +75,8 @@ pub enum Expression {
         object: Box<Expression>,
         identifier: Box<Expression>
     },
-    ArrayAccess {
-        array: Box<Expression>,
+    IndexAccess {
+        object: Box<Expression>,
         index: Box<Expression>,
     },
     Assignment {

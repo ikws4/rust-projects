@@ -1,6 +1,5 @@
+use super::{flow::Flow, object::Object, value::Value};
 use std::{cell::RefCell, rc::Rc};
-
-use super::{flow::Flow, method::Method, native_function::NativeFunction, object::Object, value::Value};
 
 pub struct Env {
     stack: Vec<Rc<RefCell<Object>>>,
@@ -66,11 +65,7 @@ impl Env {
         Err(Flow::Error(format!("Method {} not found", name)))
     }
 
-    pub fn define_method(&mut self, name: String, method: Method) -> Result<Value, Flow> {
+    pub fn define_method(&mut self, name: String, method: Value) -> Result<Value, Flow> {
         self.current().borrow_mut().define_method(name, method)
-    }
-
-    pub fn define_native_function(&mut self, name: String, function: NativeFunction) -> Result<Value, Flow> {
-        self.current().borrow_mut().define_native_function(name, function)
     }
 }

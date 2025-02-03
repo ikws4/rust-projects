@@ -1,20 +1,20 @@
 use super::{
-    array::Array, builtin_function, env::Env, flow::Flow, method::Method,
-    native_function::NativeFunction, object::Object, traits::TCall, value::Value,
+    builtin_function, env::Env, flow::Flow, method::Method, native_function::NativeFunction,
+    object::Object, traits::Callable, value::Value,
 };
 use crate::ast::{BinaryOp, Expression, MethodDeclaration, MethodSignature, Statement, UnaryOp};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 pub struct Interpreter {
     pub env: Env,
-    pub object_prototypes: HashMap<String, Object>,
+    pub prototypes: HashMap<String, Object>,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
         Self {
             env: Env::new(),
-            object_prototypes: HashMap::new(),
+            prototypes: HashMap::new(),
         }
     }
 
@@ -23,7 +23,6 @@ impl Interpreter {
         self.with_std_function("assert", builtin_function::assert, 2, 2)?;
         self.with_std_function("addr", builtin_function::addr, 1, 1)?;
         self.with_std_function("print", builtin_function::print, 0, 256)?;
-        self.with_std_function("length", builtin_function::length, 1, 1)?;
         self.with_std_function("range", builtin_function::range, 2, 3)?;
         Ok(self)
     }
@@ -36,9 +35,10 @@ impl Interpreter {
         max_arity: usize,
     ) -> Result<&mut Self, Flow> {
         let native_function = NativeFunction::new(function, min_arity, max_arity);
-
-        self.env
-            .define_native_function(name.to_string(), native_function)?;
+        self.env.define_method(
+            name.to_string(),
+            Value::new_native_function(native_function),
+        )?;
         Ok(self)
     }
 
@@ -105,9 +105,9 @@ impl Interpreter {
         for method_decl in methods {
             let name = method_decl.signature.name.clone();
             let method = Method::new(method_decl.clone());
-            object.define_method(name, method)?;
+            object.define_method(name, Value::new_method(method))?;
         }
-        self.object_prototypes.insert(name.clone(), object);
+        self.prototypes.insert(name.clone(), object);
 
         Ok(Value::Void)
     }
@@ -208,7 +208,7 @@ impl Interpreter {
             Expression::DotAccess { object, identifier } => {
                 self.evaluate_dot_access(object, identifier)
             }
-            Expression::ArrayAccess { array, index } => self.evaluate_array_access(array, index),
+            Expression::IndexAccess { object, index } => self.evaluate_index_access(object, index),
             Expression::Assignment { target, value } => self.evaluate_assignment(target, value),
             Expression::ObjectConstruction { type_name, fields } => {
                 self.evaluate_object_construction(type_name, fields)
@@ -219,7 +219,7 @@ impl Interpreter {
             Expression::CallableIdentifier(name) => self.evaluate_callable_identifier(name),
             Expression::Identifier(name) => self.evaluate_identifier(name),
             Expression::NumberLiteral(n) => Ok(Value::Number(n.parse().unwrap())),
-            Expression::StringLiteral(s) => Ok(Value::String(Rc::new(RefCell::new(s.clone())))),
+            Expression::StringLiteral(s) => Ok(Value::new_string(s.clone())),
             Expression::BoolLiteral(b) => Ok(Value::Bool(*b)),
             Expression::Null => Ok(Value::Null),
         }
@@ -230,7 +230,7 @@ impl Interpreter {
         callee: &Expression,
         arguments: &Vec<Expression>,
     ) -> Result<Value, Flow> {
-        let callee = self.evaluate_expression(callee)?;
+        let value = self.evaluate_expression(callee)?;
 
         let mut args = Vec::new();
         for arg in arguments {
@@ -238,10 +238,11 @@ impl Interpreter {
             args.push(arg);
         }
 
-        match callee {
+        match value {
             Value::Method(method) => method.borrow().call(self, &args),
             Value::NativeFunction(native_method) => native_method.borrow().call(self, &args),
-            _ => Err(Flow::Error("Can only call methods on objects".to_string())),
+            Value::NativeMethod(native_method) => native_method.borrow().call(self, &args),
+            _ => Err(Flow::Error("Invalid call".to_string())),
         }
     }
 
@@ -286,24 +287,50 @@ impl Interpreter {
         identifier: &Expression,
     ) -> Result<Value, Flow> {
         let mut value = self.evaluate_expression(object)?;
-        if let Value::Object(object) = &value {
-            self.env.push(object.clone());
-            value = self.evaluate_expression(identifier)?;
-            self.env.pop()?;
+
+        match &value {
+            Value::String(string) => {
+                value = self.evaluate_expression(identifier)?;
+            }
+            Value::Object(object) => {
+                self.env.push(object.clone());
+                value = self.evaluate_expression(identifier)?;
+                self.env.pop()?;
+            }
+            Value::Array(array) => {
+                self.env
+                    .push(array.borrow().object_wrapper.clone().unwrap());
+                value = self.evaluate_expression(identifier)?;
+                self.env.pop()?;
+            }
+            _ => {
+                return Err(Flow::Error("Invalid dot access".to_string()));
+            }
         }
+
         Ok(value)
     }
 
-    fn evaluate_array_access(
+    fn evaluate_index_access(
         &mut self,
-        array: &Expression,
+        object: &Expression,
         index: &Expression,
     ) -> Result<Value, Flow> {
-        let value = self.evaluate_expression(array)?;
-        let array = value.as_array()?;
-        let index = self.evaluate_expression(index)?.as_number()?;
-        let value = array.borrow().get_value(index as i32);
-        value
+        let value = self.evaluate_expression(object)?;
+
+        match &value {
+            Value::String(string) => {
+                let index = self.evaluate_expression(index)?.as_number()?;
+                let value = string.borrow().chars().nth(index as usize).unwrap();
+                Ok(Value::new_string(value.to_string()))
+            }
+            Value::Array(array) => {
+                let index = self.evaluate_expression(index)?.as_number()?;
+                let value = array.borrow().get_value(index as i32);
+                value
+            }
+            _ => Err(Flow::Error("Invalid index access".to_string())),
+        }
     }
 
     fn evaluate_assignment(
@@ -320,10 +347,25 @@ impl Interpreter {
         match target {
             Expression::Identifier(name) => {
                 self.env.set_value(name.to_string(), value.clone())?;
-                Ok(Value::Void)
+                return Ok(Value::Void);
             }
-            _ => Err(Flow::Error("Invalid assignment target".to_string())),
+            Expression::IndexAccess { object, index } => {
+                let object = self.evaluate_expression(object)?;
+                let index = self.evaluate_expression(index)?;
+
+                match &object {
+                    Value::Array(array) => {
+                        let index = index.as_number()?;
+                        array.borrow_mut().set_value(index as i32, value)?;
+                        return Ok(Value::Void);
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
         }
+
+        Err(Flow::Error("Invalid assignment target".to_string()))
     }
 
     fn evaluate_object_construction(
@@ -332,7 +374,7 @@ impl Interpreter {
         fields: &HashMap<String, Expression>,
     ) -> Result<Value, Flow> {
         if let Some(type_name) = type_name {
-            return match self.object_prototypes.get(type_name) {
+            return match self.prototypes.get(type_name) {
                 Some(object) => {
                     let object = Rc::new(RefCell::new(object.instantiate()));
                     let mut init_args = Vec::new();
@@ -392,7 +434,7 @@ impl Interpreter {
                 let value = self.evaluate_expression(value)?;
                 object.define_value(name.clone(), value)?;
             }
-            Ok(Value::Object(Rc::new(RefCell::new(object))))
+            Ok(Value::new_object(object))
         }
     }
 
@@ -403,8 +445,7 @@ impl Interpreter {
             array_elements.push(value);
         }
 
-        let array = Rc::new(RefCell::new(Array::new(array_elements)));
-        Ok(Value::Array(array))
+        Value::new_array(array_elements)
     }
 
     fn evaluate_identifier(&mut self, name: &String) -> Result<Value, Flow> {
@@ -537,7 +578,7 @@ mod tests {
 
               render(context) {
                 // Rendering code ...
-                print("render text", this, text);
+                print("render text", text);
               }
             }
 
@@ -546,7 +587,7 @@ mod tests {
 
               render(context) {
                 // Rendering code ...
-                print("render circle", this.position, position);
+                print("render circle", position, radius);
               }
             }
 
@@ -563,6 +604,8 @@ mod tests {
                 radius = 5,
               }
             ];
+
+            print(renderables.length());
 
             var frame = 0;
             while (frame < 3) {

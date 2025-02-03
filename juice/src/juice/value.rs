@@ -1,7 +1,11 @@
-use std::{cell::RefCell, fmt::{Debug, Display}, rc::Rc};
-
 use super::{
-    array::Array, flow::Flow, method::Method, native_function::NativeFunction, object::Object,
+    array::Array, flow::Flow, method::Method, native_function::NativeFunction,
+    native_method::NativeMethod, object::Object,
+};
+use std::{
+    cell::RefCell,
+    fmt::{Debug, Display},
+    rc::Rc,
 };
 
 #[derive(Clone, PartialEq)]
@@ -11,6 +15,7 @@ pub enum Value {
     String(Rc<RefCell<String>>),
     Object(Rc<RefCell<Object>>),
     Method(Rc<RefCell<Method>>),
+    NativeMethod(Rc<RefCell<NativeMethod>>),
     NativeFunction(Rc<RefCell<NativeFunction>>),
     Array(Rc<RefCell<Array>>),
     Null,
@@ -18,6 +23,38 @@ pub enum Value {
 }
 
 impl Value {
+    pub fn new_string(string: String) -> Self {
+        let string = Rc::new(RefCell::new(string));
+        Value::String(string)
+    }
+
+    pub fn new_object(object: Object) -> Self {
+        Value::Object(Rc::new(RefCell::new(object)))
+    }
+
+    pub fn new_method(method: Method) -> Self {
+        Value::Method(Rc::new(RefCell::new(method)))
+    }
+
+    pub fn new_native_method(native_method: NativeMethod) -> Self {
+        Value::NativeMethod(Rc::new(RefCell::new(native_method)))
+    }
+
+    pub fn new_native_function(native_function: NativeFunction) -> Self {
+        Value::NativeFunction(Rc::new(RefCell::new(native_function)))
+    }
+
+    pub fn new_array(array: Vec<Value>) -> Result<Value, Flow> {
+        let array = Rc::new(RefCell::new(Array::new(array)));
+        let value = Value::Array(array.clone());
+
+        array
+            .borrow_mut()
+            .wrap(Rc::new(RefCell::new(value.clone())))?;
+
+        Ok(value)
+    }
+
     pub fn as_number(&self) -> Result<f64, Flow> {
         match self {
             Value::Number(n) => Ok(*n),
@@ -126,9 +163,9 @@ impl Value {
     pub fn add(&self, rhs: &Value) -> Result<Value, Flow> {
         match (self, rhs) {
             (Value::Number(a), Value::Number(b)) => Ok(Value::Number(a + b)),
-            (Value::String(a), Value::String(b)) => {
-                Ok(Value::String(Rc::new(RefCell::new(format!("{}{}", a.borrow(), b.borrow())))))
-            }
+            (Value::String(a), Value::String(b)) => Ok(Value::String(Rc::new(RefCell::new(
+                format!("{}{}", a.borrow(), b.borrow()),
+            )))),
             _ => Err(Flow::Error(
                 "Invalid operands for add operation".to_string(),
             )),
@@ -256,6 +293,9 @@ impl Display for Value {
             }
             Value::Method(method) => {
                 write!(f, "<method {}>", method.borrow().declaration.signature.name)
+            }
+            Value::NativeMethod(ref_cell) => {
+                write!(f, "<native array method {:p}>", ref_cell.borrow().function)
             }
             Value::NativeFunction(method) => {
                 write!(f, "<native method {:p}>", method.borrow().function)

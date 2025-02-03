@@ -1,5 +1,5 @@
-use super::{flow::Flow, method::Method, native_function::{self, NativeFunction}, value::Value};
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use super::{flow::Flow, value::Value};
+use std::collections::HashMap;
 
 #[derive(Clone, PartialEq)]
 pub struct Object {
@@ -30,14 +30,7 @@ impl Object {
         Err(Flow::Error(format!("Method {} not found", name)))
     }
 
-    pub fn define_method(&mut self, name: String, method: Method) -> Result<Value, Flow> {
-        let method = Value::Method(Rc::new(RefCell::new(method)));
-        self.methods.insert(name, method);
-        Ok(Value::Void)
-    }
-
-    pub fn define_native_function(&mut self, name: String, native_function: NativeFunction) -> Result<Value, Flow> {
-        let method = Value::NativeFunction(Rc::new(RefCell::new(native_function)));
+    pub fn define_method(&mut self, name: String, method: Value) -> Result<Value, Flow> {
         self.methods.insert(name, method);
         Ok(Value::Void)
     }
