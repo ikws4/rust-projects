@@ -1,0 +1,43 @@
+object Quicksort {
+    init() {}
+
+    sort(array) {
+        sortRange(array, 0, array.length() - 1);
+        return array;
+    }
+
+    sortRange(array, low, high) {
+        if (low < high) {
+            var pivot = partition(array, low, high);
+            sortRange(array, low, pivot - 1);
+            sortRange(array, pivot + 1, high);
+        }
+    }
+
+    partition(array, low, high) {
+        var pivot = array[high];
+        var i = low - 1;
+
+        for (var j in range(low, high)) {
+            if (array[j] < pivot) {
+                i = i + 1;
+                swap(array, i, j);
+            }
+        }
+
+        swap(array, i + 1, high);
+        return i + 1;
+    }
+
+    swap(array, i, j) {
+        var temp = array[i];
+        array[i] = array[j];
+        array[j] = temp;
+    }
+}
+
+var quicksort = Quicksort {};
+var array = [64, 34, 25, 12, 22, 11, 90];
+print("Original array:", array);
+quicksort.sort(array);
+print("Sorted array:", array);

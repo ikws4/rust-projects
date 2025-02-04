@@ -1,0 +1,23 @@
+object Math {
+    init() {}
+
+    square(x) {
+        return x * x;
+    }
+
+    cube(x) {
+        return x * x * x;
+    }
+
+    factorial(n) {
+        if (n <= 1) {
+            return 1;
+        }
+        return n * factorial(n - 1);
+    }
+}
+
+var math = Math {};
+print("square =", math.square(5));
+print("cube =", math.cube(3));
+print("fractorial =", math.factorial(5));

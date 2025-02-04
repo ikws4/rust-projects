@@ -1,0 +1,45 @@
+object Mandelbrot {
+    init() { }
+
+    draw(width: number, height: number) {
+        var maxIterations = 10;
+
+        for (var y in range(0, height)) {
+            var line = "";
+            for (var x in range(0, width)) {
+                var a = (x - width/2) * 4.0/width;
+                var b = (y - height/2) * 4.0/height;
+
+                var ca = a;
+                var cb = b;
+
+                var n = 0;
+
+                while (n < maxIterations) {
+                    var aa = a*a - b*b;
+                    var bb = 2*a*b;
+
+                    a = aa + ca;
+                    b = bb + cb;
+
+                    if (a*a + b*b > 4) {
+                        break;
+                    }
+
+                    n = n + 1;
+                }
+
+                if (n == maxIterations) {
+                    line = line + "*";
+                } else {
+                    line = line + " ";
+                }
+            }
+
+            print(line);
+        }
+    }
+}
+
+var mandelbrot = Mandelbrot {};
+mandelbrot.draw(80, 30);
