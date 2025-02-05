@@ -45,7 +45,7 @@ impl Object {
 
     pub fn define_value(&mut self, name: String, value: Value) -> Result<Value, Flow> {
         if self.values.contains_key(&name) {
-            return Err(Flow::Error("Field already defined".to_string()));
+            return Err(Flow::Error(format!("Field {} already defined", name)));
         }
 
         self.values.insert(name, value);

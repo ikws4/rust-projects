@@ -5,7 +5,6 @@ object Board {
                 cells.add(0);
             }
         }
-        print(cells);
     }
 
     get(x, y) {
@@ -13,8 +12,6 @@ object Board {
     }
 
     set(x, y, value) {
-
-            print(x, y, value, cells);
         cells[y * width + x] = value;
     }
 
@@ -81,8 +78,6 @@ var board = Board {
     height = 10,
     cells = []
 };
-
-print(board.cells);
 
 // Add a glider pattern
 board.set(1, 0, 1);

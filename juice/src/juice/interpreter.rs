@@ -49,8 +49,9 @@ impl Interpreter {
 
     pub fn execute_block(&mut self, block: &Vec<Statement>) -> Result<Value, Flow> {
         self.env.push_default();
-        self.execute_statements(block)?;
-        self.env.pop()
+        let value = self.execute_statements(block);
+        self.env.pop()?;
+        value
     }
 
     pub fn execute_statements(&mut self, block: &Vec<Statement>) -> Result<Value, Flow> {
@@ -403,15 +404,8 @@ impl Interpreter {
 
                         for param in init_method_params {
                             let name = &param.name;
-                            if let Some(field) = fields.get(name) {
-                                let value = self.evaluate_expression(field)?;
-                                init_args.push(value);
-                            } else {
-                                return Err(Flow::Error(format!(
-                                    "Missing argument {} for init method",
-                                    name
-                                )));
-                            }
+                            let value = object.borrow().get_value(name)?;
+                            init_args.push(value);
                         }
 
                         init_method.borrow().call(self, &init_args)?;
