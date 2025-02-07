@@ -1,0 +1,71 @@
+object RenderContext {
+  init() {
+
+  }
+}
+
+trait Renderable {
+  render(context: RenderContext): void;
+}
+
+trait Updatable {
+  update(delta: number): void;
+}
+
+object Text : Renderable + Updatable {
+  init(text, position) {
+
+  }
+
+  render(context) {
+    print("Text:", text);
+  }
+
+  update(dt) {
+
+  }
+}
+
+object Sprite : Renderable + Updatable {
+  init(texture, position) {
+
+  }
+
+  render(context) {
+    print("Texture:", texture);
+  }
+
+  update(dt) {
+
+  }
+}
+
+var entities = [
+  Text {
+    text = "Hello world",
+    position = {
+      x = 0,
+      y = 0,
+    }
+  },
+  Sprite {
+    texture = {
+      path = "path/to/texture.png"
+    },
+    position = {
+      x = 0,
+      y = 0,
+    }
+  }
+];
+
+var frame = 5;
+var renderContext = RenderContext { };
+
+while (frame > 0) {
+  for (var entity in entities) {
+    entity.update(0.016);
+    entity.render(renderContext);
+  }
+  frame = frame - 1;
+}
