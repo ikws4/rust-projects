@@ -1,18 +1,16 @@
 use crate::token::{Token, TokenType};
-use std::iter::Peekable;
-use std::str::Chars;
 
-pub struct Lexer<'a> {
-    input: Peekable<Chars<'a>>,
+pub struct Lexer {
+    input: Vec<char>,
     line: usize,
     column: usize,
     position: usize,
 }
 
-impl<'a> Lexer<'a> {
-    pub fn new(input: &'a str) -> Self {
+impl Lexer {
+    pub fn new(input: &str) -> Self {
         Lexer {
-            input: input.chars().peekable(),
+            input: input.chars().collect(),
             line: 1,
             column: 1,
             position: 0,
@@ -20,24 +18,32 @@ impl<'a> Lexer<'a> {
     }
 
     fn advance(&mut self) -> Option<char> {
-        let c = self.input.next();
-        if let Some(ch) = c {
-            self.position += 1;
-            self.column += 1;
-            if ch == '\n' {
-                self.line += 1;
-                self.column = 1;
-            }
+        if self.position >= self.input.len() {
+            return None;
         }
-        c
+
+        let c = self.input[self.position];
+        self.position += 1;
+        self.column += 1;
+
+        if c == '\n' {
+            self.line += 1;
+            self.column = 1;
+        }
+
+        Some(c)
     }
 
-    fn peek(&mut self) -> Option<&char> {
-        self.input.peek()
+    fn peek(&mut self) -> Option<char> {
+        if self.position >= self.input.len() {
+            None
+        } else {
+            Some(self.input[self.position])
+        }
     }
 
     fn skip_whitespace(&mut self) {
-        while let Some(&c) = self.peek() {
+        while let Some(c) = self.peek() {
             if !c.is_whitespace() {
                 break;
             }
@@ -49,7 +55,7 @@ impl<'a> Lexer<'a> {
         let mut lexeme = String::with_capacity(128);
         lexeme.push(first_char);
 
-        while let Some(&c) = self.peek() {
+        while let Some(c) = self.peek() {
             if !c.is_alphanumeric() && c != '_' {
                 break;
             }
@@ -75,12 +81,7 @@ impl<'a> Lexer<'a> {
         };
 
         let lexeme_len = lexeme.len();
-        Token::new(
-            token_type,
-            &lexeme,
-            self.line,
-            self.column - lexeme_len,
-        )
+        Token::new(token_type, &lexeme, self.line, self.column - lexeme_len)
     }
 
     fn read_number(&mut self, first_char: char) -> Token {
@@ -88,7 +89,7 @@ impl<'a> Lexer<'a> {
         lexeme.push(first_char);
 
         let mut has_decimal = false;
-        while let Some(&c) = self.peek() {
+        while let Some(c) = self.peek() {
             if c.is_digit(10) {
                 lexeme.push(self.advance().unwrap());
             } else if c == '.' && !has_decimal {
@@ -120,16 +121,11 @@ impl<'a> Lexer<'a> {
             }
         }
 
-        Token::new(
-            TokenType::StringLiteral,
-            &lexeme,
-            self.line,
-            start_column,
-        )
+        Token::new(TokenType::StringLiteral, &lexeme, self.line, start_column)
     }
 
     fn read_comment(&mut self) {
-        while let Some(&c) = self.peek() {
+        while let Some(c) = self.peek() {
             if c == '\n' {
                 break;
             }
@@ -161,7 +157,7 @@ impl<'a> Lexer<'a> {
 
                 // Two-character tokens
                 '=' => {
-                    if let Some(&'=') = self.peek() {
+                    if let Some('=') = self.peek() {
                         self.advance();
                         Token::new(TokenType::EqualEqual, "==", self.line, self.column - 2)
                     } else {
@@ -169,7 +165,7 @@ impl<'a> Lexer<'a> {
                     }
                 }
                 '!' => {
-                    if let Some(&'=') = self.peek() {
+                    if let Some('=') = self.peek() {
                         self.advance();
                         Token::new(TokenType::BangEqual, "!=", self.line, self.column - 2)
                     } else {
@@ -177,7 +173,7 @@ impl<'a> Lexer<'a> {
                     }
                 }
                 '>' => {
-                    if let Some(&'=') = self.peek() {
+                    if let Some('=') = self.peek() {
                         self.advance();
                         Token::new(TokenType::GreaterEqual, ">=", self.line, self.column - 2)
                     } else {
@@ -185,7 +181,7 @@ impl<'a> Lexer<'a> {
                     }
                 }
                 '<' => {
-                    if let Some(&'=') = self.peek() {
+                    if let Some('=') = self.peek() {
                         self.advance();
                         Token::new(TokenType::LessEqual, "<=", self.line, self.column - 2)
                     } else {
@@ -193,7 +189,7 @@ impl<'a> Lexer<'a> {
                     }
                 }
                 '&' => {
-                    if let Some(&'&') = self.peek() {
+                    if let Some('&') = self.peek() {
                         self.advance();
                         Token::new(TokenType::And, "&&", self.line, self.column - 2)
                     } else {
@@ -201,7 +197,7 @@ impl<'a> Lexer<'a> {
                     }
                 }
                 '|' => {
-                    if let Some(&'|') = self.peek() {
+                    if let Some('|') = self.peek() {
                         self.advance();
                         Token::new(TokenType::Or, "||", self.line, self.column - 2)
                     } else {
@@ -211,7 +207,7 @@ impl<'a> Lexer<'a> {
                 '"' => self.read_string(),
                 '/' => {
                     match self.peek() {
-                        Some(&'/') => {
+                        Some('/') => {
                             self.advance(); // consume second '/'
                             self.read_comment();
                             self.next_token() // skip comment and get next token
